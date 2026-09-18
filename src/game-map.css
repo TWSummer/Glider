@@ -1,0 +1,70 @@
+.dialog.atlas-dialog{max-width:1180px;width:calc(100vw - 48px);padding:23px 27px 22px;max-height:94dvh;overflow:hidden;background:#f3efe1}
+.atlas-dialog #dialog-content{display:flex;flex-direction:column;max-height:calc(94dvh - 45px)}
+.atlas-dialog #dialog-title{font-size:29px;margin:8px 0 0}
+.atlas-dialog .journal-tabs{flex:none;margin:12px 0 15px;padding-bottom:10px}
+.atlas-dialog .dialog-close{top:20px;right:20px}
+.atlas-workspace{display:grid;grid-template-columns:minmax(0,1fr) 242px;gap:23px;min-height:0;flex:1}
+.atlas-map-column{min-width:0;min-height:0;display:flex;flex-direction:column}
+.atlas-map-viewport{position:relative;min-height:320px;height:clamp(360px,66vh,690px);background:#9fbab0;border:1px solid #6b827461;border-radius:7px;overflow:hidden;box-shadow:inset 0 0 35px #32584b22}
+.game-atlas{width:100%;height:100%;display:block;touch-action:none;cursor:grab;user-select:none;-webkit-user-select:none}
+.game-atlas:active{cursor:grabbing}
+.map-leader{fill:none;stroke:#617256;stroke-width:1;opacity:.65}
+.map-icon-halo{fill:#eae2bd22;stroke:#e8e0bbaa;stroke-width:1}
+.map-icon-disc{fill:#e7dfbe;stroke:#667657;stroke-width:1.1}
+.map-symbol{stroke:#4c6651}
+.map-location-name{font:var(--atlas-label-size,21px) Georgia,'Times New Roman',serif;fill:#334e3b;paint-order:stroke;stroke:#dce0c3b3;stroke-width:2.8px;stroke-linejoin:round}
+.map-location-state{font:9.5px 'DM Sans',sans-serif;letter-spacing:1.1px;fill:#557060;paint-order:stroke;stroke:#dce0c3ad;stroke-width:2.7px}
+.atlas-location{cursor:pointer;outline:none}
+.is-rumor .map-icon-disc{fill:#ccd2b5;stroke-dasharray:2.2 2.2;stroke:#637b67}
+.is-rumor .map-symbol{stroke:#627c6b}
+.is-rumor .map-icon-halo{stroke-opacity:.5}
+.is-discovered .map-icon-disc{fill:#eee0b1;stroke:#9e8558;stroke-width:1.8}
+.is-discovered .map-location-state{fill:#695f3e}
+.atlas-location:hover .map-icon-halo,.atlas-location:focus-visible .map-icon-halo,.atlas-location.is-selected .map-icon-halo{fill:#f7e6a748;stroke:#fbefc6;stroke-width:2.2}
+.atlas-location:hover .map-icon-disc,.atlas-location:focus-visible .map-icon-disc,.atlas-location.is-selected .map-icon-disc{fill:#f6e8ba;stroke:#6b7556;stroke-dasharray:none}
+.atlas-location.is-selected .map-location-name{fill:#264633;font-weight:600}
+.map-player{pointer-events:none}
+.map-location-compact,.atlas-mobile-charted,.atlas-mobile-north{display:none}
+.map-player-pulse{fill:none;stroke:#fbf0c5;stroke-width:1.3;opacity:.8}
+.atlas-map-tools{position:absolute;left:13px;bottom:16px;display:flex;align-items:center;gap:3px;padding:4px;border:1px solid #5e77654a;border-radius:6px;background:#f0ead6ef;box-shadow:0 3px 14px #25493c19}
+.atlas-map-tools button{display:grid;place-items:center;width:30px;height:30px;background:transparent;color:#426452;font:21px Georgia,serif;border-radius:3px;transition:background .15s}
+.atlas-map-tools button:hover{background:#d0dac4}
+.atlas-map-tools button:disabled{opacity:.35;cursor:default}
+.atlas-map-tools>span{height:19px;width:1px;background:#526b5429;margin:0 4px}
+.atlas-pan-hint{position:absolute;right:15px;bottom:24px;font-size:7px;letter-spacing:1.2px;color:#325a4c;background:#dfe4cfad;padding:6px 8px;border-radius:3px;pointer-events:none}
+.atlas-legend{display:flex;align-items:center;gap:15px;padding:13px 2px 0;color:#6b7b61;font-size:8px;flex:none;flex-wrap:wrap}
+.atlas-legend>span{display:flex;align-items:center;gap:5px;white-space:nowrap}
+.atlas-legend i{width:9px;height:9px;display:inline-block;border-radius:50%}
+.legend-player{background:#35594c;border:2px solid #c6bb8c;clip-path:polygon(50% 0,100% 100%,50% 75%,0 100%);border-radius:0!important;width:11px!important;height:12px!important}
+.legend-charted{background:#d7bd82;border:1px solid #958154}
+.legend-uncharted{background:transparent;border:1px dashed #738672}
+.legend-camp{background:#648771;transform:rotate(45deg);border-radius:1px!important;width:7px!important;height:7px!important}
+.atlas-legend>b{margin-left:auto;font-size:8px;font-weight:400;font-variant-numeric:tabular-nums}
+.atlas-sidebar{min-height:0;overflow:auto;scrollbar-width:thin;scrollbar-color:#899c7a transparent;padding:1px 2px 0 0}
+.atlas-progress{border-bottom:1px solid #70846533;padding:0 0 19px;margin-bottom:21px}
+.atlas-progress>span{font-size:7px;letter-spacing:2px;color:#889577;display:block;margin-bottom:12px}
+.atlas-progress>strong{font:37px Georgia,serif;color:#3f6550;display:inline-block;vertical-align:baseline}
+.atlas-progress>strong small{font-size:24px;color:#a3ac8b}
+.atlas-progress>p{font-size:10px!important;display:inline;margin-left:9px!important;color:#819171}
+.atlas-progress>div{height:3px;background:#dee2cf;margin-top:14px}
+.atlas-progress>div>i{display:block;height:100%;background:#97a681}
+.atlas-selection>section[hidden]{display:none}
+.atlas-region-status{font-size:7px;color:#8a9679;letter-spacing:1.5px}
+.atlas-detail-icon{width:54px;height:54px;display:grid;place-items:center;margin:15px 0 10px;background:#e6e7d5;color:#64816a;border:1px solid #b7c1a573;border-radius:50%}
+.atlas-detail-icon svg{height:30px;width:30px}
+.atlas-selection h3{font:27px/1.08 Georgia,serif;font-weight:400;color:#355645;margin:12px 0}
+.atlas-difficulty{display:flex;gap:10px;align-items:center;font-size:9px;color:#8c825e;margin:13px 0 17px}
+.atlas-difficulty i{font:10px Georgia,serif;letter-spacing:2px;opacity:.7}
+.atlas-selection p{font-size:11px!important;line-height:1.8!important;color:#6c7a61;margin:10px 0!important}
+.atlas-selection .atlas-advice{font-size:10px!important;font-style:italic;color:#889275;border-left:2px solid #cbd1b9;padding-left:11px;margin-top:14px!important}
+.atlas-quest-count{font-size:9px;color:#8e977a;display:block;margin:18px 0 0}
+.atlas-pin-button{width:100%;padding:12px 13px;border:1px solid #a7b69366;border-radius:5px;background:#dbe2cb;color:#4a684f;font-size:10px;text-align:left;margin-top:20px;display:flex;align-items:center;justify-content:space-between}
+.atlas-pin-button span{font-size:19px;line-height:14px}
+.atlas-pin-button:hover{background:#cdd9ba}
+.atlas-clear-pin{font-size:9px;color:#879675;background:transparent;display:block;margin:12px auto 0;padding:6px 12px}
+.atlas-sidebar .atlas-free-explore{font:italic 11px/1.8 Georgia,serif;color:#9ca58c;text-align:center;margin:15px 0 0}
+@media(max-width:1000px){.dialog.atlas-dialog{width:calc(100vw - 30px);padding:22px;max-width:940px}.atlas-workspace{grid-template-columns:minmax(0,1fr) 190px;gap:18px}.atlas-selection h3{font-size:25px}.atlas-legend{gap:10px;font-size:7px}.atlas-pan-hint{font-size:6px;letter-spacing:.7px}.atlas-map-viewport{height:clamp(360px,65vh,680px)}}
+@media(max-width:700px){.dialog.atlas-dialog{width:calc(100vw - 24px);padding:22px 17px 17px;max-height:94dvh;overflow:auto}.atlas-dialog #dialog-content{max-height:none}.atlas-dialog #dialog-title{font-size:25px}.atlas-dialog .journal-tabs{margin:13px 0}.atlas-workspace{display:flex;flex-direction:column;gap:22px}.atlas-map-viewport{height:440px;min-height:0}.atlas-sidebar{overflow:visible;display:grid;grid-template-columns:1fr;gap:0;padding:0 2px}.atlas-progress{display:none}.atlas-selection>section:not([hidden]){position:relative;padding-top:2px}.atlas-detail-icon{position:absolute;right:0;top:0;margin:0;width:43px;height:43px}.atlas-detail-icon svg{width:25px;height:25px}.atlas-selection h3{max-width:calc(100% - 54px);font-size:27px;margin:11px 0}.atlas-selection p{font-size:11px!important}.atlas-selection .atlas-advice{font-size:10px!important}.atlas-pin-button{margin-top:16px;font-size:11px;padding:13px}.atlas-clear-pin{margin-top:12px}.atlas-sidebar .atlas-free-explore{margin:5px 0;font-size:10px}.atlas-legend{font-size:7px;gap:9px;padding-top:12px}.atlas-legend>b{display:none}.atlas-pan-hint{display:none}.atlas-map-tools{bottom:12px;left:12px}.atlas-map-tools button{height:33px;width:32px}}
+@media(max-height:700px) and (min-width:701px){.atlas-map-viewport{height:calc(94vh - 210px);min-height:280px}.atlas-progress{padding-bottom:13px;margin-bottom:15px}.atlas-detail-icon{display:none}.atlas-selection h3{font-size:24px}.atlas-pin-button{margin-top:12px}.atlas-sidebar .atlas-free-explore{display:none}}
+@media(prefers-reduced-motion:reduce){.atlas-map-tools button{transition:none}}
+@media(max-width:700px){.map-location-name,.map-location-state,.map-leader,.map-cartouche,.map-water-labels{display:none}.map-location-compact{display:block;font:var(--atlas-label-size,21px) Georgia,serif;fill:#2e503b;paint-order:stroke;stroke:#d6dbc0c9;stroke-width:2.6px}.atlas-mobile-charted,.atlas-mobile-north{display:block;position:absolute;top:12px;font-size:8px;letter-spacing:.5px;color:#426352;background:#e5ead4c9;padding:6px 8px;border-radius:3px;pointer-events:none}.atlas-mobile-charted{left:12px}.atlas-mobile-north{right:12px}}
