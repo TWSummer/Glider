@@ -10,13 +10,13 @@ import { QUESTS, questKnown, acceptQuest, finishQuest, interactSite, rumor, next
 import { icon } from './icons';
 import { buildingAt } from './architecture-data';
 import { World, groundHeight, islands } from './world';
-import { ROUTE, TRAIL_START, initialFlight, stepFlight, crossedRing, ringNormal, forwardVector, angleDifference, type Point3, type FlightInput } from './flight';
+import { initialFlight, stepFlight, forwardVector, angleDifference, type Point3, type FlightInput } from './flight';
 import { Adventure, PLACES, STATIONS, LIFTS, liftAt, placeAt, difficultyAt } from './adventure';
 import { newProgress, capacity, flightTuning, spendCharge, UPGRADE_INFO, upgradeCost, upgradeProblem, buyUpgrade, readSave, writeSave, serializeSave, parseSave, type Progress, type SaveFile, type Upgrade } from './progression';
 
 const el = <T extends HTMLElement = HTMLElement>(id: string) => document.getElementById(id) as T;
 // Separate development entry exercises the real UI without ever touching player saves.
-const playtest = import.meta.env.DEV && location.pathname === '/playtest.html';
+const playtest = import.meta.env.DEV && location.pathname === `${import.meta.env.BASE_URL}playtest.html`;
 const testStorage = new Map<string, string>();
 const storage = playtest ? { getItem: (key: string) => testStorage.get(key) ?? null, setItem: (key: string, value: string) => { testStorage.set(key, value); } } : { getItem: (key: string) => localStorage.getItem(key), setItem: (key: string, value: string) => localStorage.setItem(key, value) };
 document.getElementById('app')!.innerHTML = `
@@ -27,7 +27,7 @@ document.getElementById('app')!.innerHTML = `
   </header>
   <div class="location-tag menu-only">${icon('mountain')}<div><span>THE WILLOWMERE VALLEY</span><strong>One valley. A thousand little stories.</strong></div></div>
   <section class="welcome menu-only"><div class="intro"><div class="eyebrow"><span></span> A PAPER-PLANE ADVENTURE</div><h1>Small wings.<br>Untold stories.</h1><p>Across rooftops. Beneath mountains.<br>A whole valley, waiting in the wind.</p><div class="inspired">Explore · discover · make a little progress.</div></div>
-    <div class="launch-card"><div class="card-top"><span>THE WORLD BEYOND</span><span>8 REGIONS</span></div><h2>Your story takes flight.</h2><p>Take the quiet road. Follow a rumor.<br>Find your own way through Willowmere.</p><div class="mode-select" role="group" aria-label="Flight mode"><button class="selected" data-mode="adventure" aria-pressed="true">${icon('compass')} Adventure</button><button data-mode="trail" aria-pressed="false">${icon('ring')} Ring trail</button></div><button class="launch-button" id="launch"><span>Begin your adventure</span>${icon('arrow')}</button><div class="launch-hint" id="save-summary">Autosaves as you explore · stored in this browser</div><button class="text-button" id="new-game" hidden>Start a new adventure</button></div>
+    <div class="launch-card"><div class="card-top"><span>THE WORLD BEYOND</span><span>8 REGIONS</span></div><h2>Your story takes flight.</h2><p>Take the quiet road. Follow a rumor.<br>Find your own way through Willowmere.</p><button class="launch-button" id="launch"><span>Begin your adventure</span>${icon('arrow')}</button><div class="launch-hint" id="save-summary">Autosaves as you explore · stored in this browser</div><button class="text-button" id="new-game" hidden>Start a new adventure</button></div>
   </section>
   <div class="flight-hud flight-only">
     <div class="flight-location"><span class="eyebrow" id="region-tier">REGION I · GENTLE AIR</span><h2 id="region-name">Hearthside Lake</h2><span id="flight-mode-label">ADVENTURE</span></div>
@@ -47,12 +47,12 @@ document.getElementById('app')!.innerHTML = `
 </main>`;
 
 type Mode = 'menu' | 'flying' | 'paused';
-let mode: Mode = 'menu', previousMode: Mode = 'menu', flightMode: 'adventure' | 'trail' = 'adventure';
+let mode: Mode = 'menu', previousMode: Mode = 'menu';
 let progress = newProgress(), saved: SaveFile | null = null, started = false, storageErrorShown = false;
 let soundEnabled = false, invertPitch = false, toastTime = 0, invulnerable = 0, rescueCooldown = 0, saveTimer = 0, lastFocus: HTMLElement | null = null;
 let atlasCleanup: (() => void) | undefined;
 let waypoint = 'none', lastStalled = false, fanEmptyWarned = false, journalTab = 'journey';
-try { const loaded = readSave(storage); saved = loaded.save; invertPitch = storage.getItem('glider-invert') === 'true'; if (saved) { progress = saved.progress; flightMode = progress.gameMode; } if (loaded.recovered) queueMicrotask(() => toast('Your previous save was recovered from its backup.', 6)); } catch { /* The game remains playable without browser storage. */ }
+try { const loaded = readSave(storage); saved = loaded.save; invertPitch = storage.getItem('glider-invert') === 'true'; if (saved) { progress = saved.progress; } if (loaded.recovered) queueMicrotask(() => toast('Your previous save was recovered from its backup.', 6)); } catch { /* The game remains playable without browser storage. */ }
 if (playtest) {
   const params = new URLSearchParams(location.search), site = SITES.find(s => s.id === params.get('site'));
   if (site) Object.assign(progress.flight, { x: site.x, y: site.y, z: site.z + 8, speed: 4 });
@@ -87,12 +87,10 @@ function refreshMenu() {
   el('launch').innerHTML = `<span>${saved ? 'Continue your adventure' : 'Begin your adventure'}</span>${icon('arrow')}`;
   el('new-game').hidden = !saved;
   el('save-summary').textContent = saved ? `Saved ${new Date(saved.savedAt).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })} · ${saved.progress.parts} scrap · ${saved.progress.fan ? 'fan equipped' : 'paper glider'}` : 'Autosaves as you explore · stored in this browser';
-  document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(button => { const selected = button.dataset.mode === flightMode; button.classList.toggle('selected', selected); button.setAttribute('aria-pressed', String(selected)); });
 }
-function refreshMode() { el('experience').classList.toggle('in-flight', mode !== 'menu'); el('experience').classList.toggle('is-paused', mode === 'paused'); el('flight-mode-label').textContent = flightMode === 'trail' ? 'RING TRAIL' : 'ADVENTURE'; }
-function syncScene() { adventure.sync(progress); world.setRingProgress(progress.ringProgress); if (flightMode !== 'trail') world.rings.forEach(ring => ring.visible = false); }
+function refreshMode() { el('experience').classList.toggle('in-flight', mode !== 'menu'); el('experience').classList.toggle('is-paused', mode === 'paused'); }
 function saveGame(notify = false): boolean {
-  if (started) progress.flight = { ...state }; progress.gameMode = flightMode;
+  if (started) progress.flight = { ...state };
   let success = false; try { success = writeSave(storage, progress); } catch { /* Storage unavailable. */ }
   if (success) { saved = parseSave(serializeSave(progress)); saveTimer = 0; el('save-indicator').textContent = 'SAVED JUST NOW'; if (notify) toast('Adventure saved in this browser. You can also export a backup.'); }
   else if (notify || !storageErrorShown) { storageErrorShown = true; toast('Browser storage is unavailable. Use Journal → Save → Export to keep your progress.', 9); }
@@ -104,20 +102,15 @@ function snapCamera() {
 function launch(fresh = false) {
   closeDialog(false);
   if (fresh) { progress = newProgress(); waypoint = 'none'; } else if (saved) progress = parseSave(JSON.stringify(saved))!.progress;
-  if (flightMode === 'trail' && (fresh || progress.gameMode !== 'trail')) Object.assign(progress.flight, initialFlight(), TRAIL_START);
   Object.assign(state, progress.flight); started = true; mode = 'flying'; keys.clear(); invulnerable = 2; saveTimer = 0; lastStalled = false;
-  syncScene(); refreshMode(); snapCamera();
-  if ((flightMode === 'trail' && progress.ringProgress < 12 && state.y < 350) || state.y < groundHeight(state.x, state.z) + 3 || adventure.hitsSolid(state) || world.hitsObstacle(state.x, state.y, state.z)) rescue('Welcome back. Relaunching safely from your last camp.');
+  adventure.sync(progress); refreshMode(); snapCamera();
+  if (state.y < groundHeight(state.x, state.z) + 3 || adventure.hitsSolid(state) || world.hitsObstacle(state.x, state.y, state.z)) rescue('Welcome back. Relaunching safely from your last camp.');
   else toast(progress.fan ? 'Welcome back. Vents lift you; green beacons recharge your fan.' : 'Welcome to Willowmere. Explore freely; use E near a field desk or sign to hear its story.', 7);
   if (soundEnabled) setupAudio(); saveGame();
 }
 function rescue(message: string) {
   const station = STATIONS.find(s => s.id === progress.checkpoint) ?? STATIONS[0];
   Object.assign(state, initialFlight(), { x: station.x, y: station.y, z: station.z + 14 });
-  if (flightMode === 'trail' && progress.ringProgress < 12) {
-    const start = progress.ringProgress ? ROUTE[progress.ringProgress - 1] : TRAIL_START, next = ROUTE[progress.ringProgress];
-    Object.assign(state, start, { heading: Math.atan2(next.x - start.x, start.z - next.z) });
-  }
   progress.health = 100; invulnerable = 3; rescueCooldown = .5; keys.clear(); previousPosition.set(state.x, state.y, state.z); snapCamera();
   toast(message + ' Your discoveries and parts are safe.', 6); saveGame();
 }
@@ -140,7 +133,7 @@ function pauseFlight() {
   openDialog(`<div class="dialog-emblem">${icon('wind')}</div><div class="eyebrow">A MOMENT BETWEEN ADVENTURES</div><h2 id="dialog-title">The sky can wait.</h2><p>Your progress autosaves every 15 seconds and whenever you make a discovery.</p><button class="launch-button" id="resume-flight"><span>Keep flying</span>${icon('arrow')}</button><button class="secondary-button" id="pause-journal">Field journal & upgrades</button><button class="secondary-button" id="pause-save">Save adventure now</button><button class="text-button" id="return-home">Save & return to the lake</button>`);
   el('resume-flight').onclick = () => closeDialog(); el('pause-journal').onclick = () => showJournal(); el('pause-save').onclick = () => saveGame(true); el('return-home').onclick = goHome;
 }
-function confirmNewGame() { openDialog(`<div class="eyebrow">A FRESH SHEET OF PAPER</div><h2 id="dialog-title">Begin again?</h2><p>This replaces your current local adventure. Export a backup from the journal first if you want to keep it.</p><button class="launch-button" id="confirm-new"><span>Start a new adventure</span>${icon('plane')}</button><button class="secondary-button" id="cancel-new">Keep my adventure</button>`); el('confirm-new').onclick = () => { saved = null; flightMode = 'adventure'; launch(true); }; el('cancel-new').onclick = () => closeDialog(); }
+function confirmNewGame() { openDialog(`<div class="eyebrow">A FRESH SHEET OF PAPER</div><h2 id="dialog-title">Begin again?</h2><p>This replaces your current local adventure. Export a backup from the journal first if you want to keep it.</p><button class="launch-button" id="confirm-new"><span>Start a new adventure</span>${icon('plane')}</button><button class="secondary-button" id="cancel-new">Keep my adventure</button>`); el('confirm-new').onclick = () => { saved = null; launch(true); }; el('cancel-new').onclick = () => closeDialog(); }
 function showHelp() {
   openDialog(`<div class="dialog-emblem">${icon('plane')}</div><div class="eyebrow">A LITTLE FLIGHT SCHOOL</div><h2 id="dialog-title">Trade height for speed.</h2><p>Dive to gather energy. Pull up to spend it. Hold up through a full circle for a loop; enter fast, with room beneath you. A slow, steep climb stalls the glider—the nose will drop to recover.</p><div class="help-list"><div><span><kbd>←</kbd> <kbd>→</kbd></span><span>Steer and bank</span></div><div><span><kbd>↑</kbd> <kbd>↓</kbd></span><span>Pitch continuously · hold for loops</span></div><div><kbd>Shift</kbd><span>Run your discovered fan · uses charge</span></div><div><kbd>X</kbd><span>Fire rubber bands · hold to repeat</span></div><div><kbd>U / J</kbd><span>Field journal, quests and atlas</span></div><div><kbd>E</kbd><span>Read signs, speak to locals, use mechanisms</span></div><div><kbd>K</kbd><span>Save your adventure</span></div><div><kbd>Space</kbd><span>Pause / resume</span></div><div><kbd>Backspace</kbd><span>Rescue to last camp · keeps your loot</span></div></div><div class="help-note">${icon('wind')} You always lose a little height. Gold air columns and floor grates provide lift. Green beacons recharge your battery, repair the paper, and supply at least 12 rubber bands. Fly through physical loot to collect it. Signs marked E are interactions: ! means a new request, ? means ready to turn in, and ✓ means already read. Enemies have red eyes.</div><button class="launch-button" id="help-done"><span>Got it. Let’s explore.</span>${icon('check')}</button>`);
   el('help-done').onclick = () => closeDialog();
@@ -176,7 +169,7 @@ function showJournal(tabName = journalTab) {
   }
 }
 function exportSave() {
-  if (started) progress.flight = { ...state }; progress.gameMode = flightMode;
+  if (started) progress.flight = { ...state };
   const blob = new Blob([serializeSave(progress)], { type: 'application/json' }), url = URL.createObjectURL(blob), anchor = document.createElement('a'); anchor.href = url; anchor.download = `glider-adventure-${new Date().toISOString().slice(0, 10)}.json`; anchor.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); toast('Backup exported. Keep it somewhere safe.');
 }
 el<HTMLInputElement>('import-file').onchange = async event => {
@@ -184,12 +177,11 @@ el<HTMLInputElement>('import-file').onchange = async event => {
   const imported = file.size <= 1_000_000 ? parseSave(await file.text()) : null;
   if (!imported) { toast('That file is not a valid Glider adventure save. Your current progress is unchanged.', 8); const result = el('save-result'); if (result) result.textContent = 'Invalid or unsupported save file. Nothing was changed.'; return; }
   openDialog(`<div class="eyebrow">A JOURNEY FROM ANOTHER DAY</div><h2 id="dialog-title">Load this adventure?</h2><p>${imported.progress.parts} scrap · ${imported.progress.defeated.length} guardians defeated · ${imported.progress.fan ? 'fan equipped' : 'paper glider'}. This replaces your current local adventure.</p><button class="launch-button" id="confirm-import"><span>Load imported adventure</span>${icon('arrow')}</button><button class="secondary-button" id="cancel-import">Keep current adventure</button>`);
-  el('confirm-import').onclick = () => { saved = imported; progress = imported.progress; flightMode = progress.gameMode; started = false; saveGame(); launch(); toast('Backup loaded. Welcome back to your adventure.'); };
+  el('confirm-import').onclick = () => { saved = imported; progress = imported.progress; started = false; saveGame(); launch(); toast('Backup loaded. Welcome back to your adventure.'); };
   el('cancel-import').onclick = () => showJournal('save');
 };
 
 function target(): { name: string; detail: string; point: Point3 | null } {
-  if (flightMode === 'trail' && progress.ringProgress < 12) return { name: `Ring ${progress.ringProgress + 1} of 12`, detail: 'Optional flight course', point: ROUTE[progress.ringProgress] };
   if (waypoint === 'charge') { const station = [...STATIONS].filter(s => progress.discovered.includes('station-' + s.id) || dist(s, state) < 260).sort((a, b) => dist(a, state) - dist(b, state))[0]; if (station) return { name: station.name, detail: 'An optional pin to a known recharge beacon', point: station }; }
   if (waypoint.startsWith('place:')) { const place = PLACES.find(p => p.id === waypoint.slice(6)); if (place) return { name: place.name, detail: progress.trackedQuest ? rumor(progress).detail : 'Pinned region · choose your own route', point: place }; }
   return { ...rumor(progress), point: null };
@@ -219,7 +211,6 @@ el('launch').onclick = () => launch(); el('new-game').onclick = confirmNewGame; 
 document.querySelector<HTMLAnchorElement>('.brand')!.onclick = event => { event.preventDefault(); if (mode === 'flying') pauseFlight(); else if (mode === 'paused') goHome(); };
 async function fullscreen() { try { if (document.fullscreenElement) await document.exitFullscreen(); else await el('experience').requestFullscreen(); } catch { toast('Fullscreen is unavailable in this browser view.'); } }
 el('fullscreen').onclick = fullscreen; document.addEventListener('fullscreenchange', () => el('fullscreen').setAttribute('aria-label', document.fullscreenElement ? 'Exit fullscreen' : 'Enter fullscreen'));
-document.querySelectorAll<HTMLButtonElement>('[data-mode]').forEach(button => button.onclick = () => { flightMode = button.dataset.mode as typeof flightMode; refreshMenu(); world.setRingProgress(progress.ringProgress); if (flightMode !== 'trail') world.rings.forEach(r => r.visible = false); });
 el('dialog-backdrop').onclick = event => { if (event.target === el('dialog-backdrop')) closeDialog(); };
 window.addEventListener('keydown', event => {
   const tag = (event.target as HTMLElement).tagName;
@@ -282,7 +273,7 @@ function updateHUD(lift: number) {
 
 try {
   renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' }); renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
-  el('scene').appendChild(renderer.domElement); world = new World(); world.thermalPoints.visible = false; world.plane.scale.setScalar(.72); adventure = new Adventure(world.scene, world.plane); syncScene(); snapCamera(); refreshMenu();
+  el('scene').appendChild(renderer.domElement); world = new World(); world.thermalPoints.visible = false; world.plane.scale.setScalar(.72); adventure = new Adventure(world.scene, world.plane); adventure.sync(progress); snapCamera(); refreshMenu();
   renderer.domElement.addEventListener('webglcontextlost', event => { event.preventDefault(); if (started) saveGame(); if (mode === 'flying') pauseFlight(); toast('The view needs a refresh. Your adventure was saved where browser storage is available.', 120); });
   window.addEventListener('resize', () => { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); });
   let last = performance.now(), time = 0, accumulator = 0, hudAccumulator = 0;
@@ -301,7 +292,6 @@ try {
     const ground = groundHeight(state.x, state.z);
     if (rescueCooldown <= 0 && (state.y < ground + 2 || world.hitsObstacle(state.x, state.y, state.z) || adventure.pathBlocked(previousPosition, state, 1.2))) rescue('A rough landing. Relaunching from camp.');
     if (state.x < -1550 || state.x > 1600 || state.z < -3900 || state.z > 720 || state.y > 750 || state.y < -20) rescue('The wind brought you back from the edge of the map.');
-    if (flightMode === 'trail' && progress.ringProgress < 12 && crossedRing(previousPosition, state, ROUTE[progress.ringProgress], ringNormal(progress.ringProgress))) { progress.ringProgress++; world.setRingProgress(progress.ringProgress); progress.parts += 2; toast(progress.ringProgress === 12 ? 'Trail complete! +24 scrap earned along the way. The world is still yours to explore.' : `Ring ${progress.ringProgress} / 12 · +2 scrap`); chime(); saveGame(); }
     if (saveTimer >= 15) saveGame();
   }
   function animate(now: number) {

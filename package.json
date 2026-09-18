@@ -7,7 +7,7 @@
     "dev": "vite --host 0.0.0.0",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 0.0.0.0",
-    "test": "node --experimental-strip-types --test src/flight.test.ts src/progression.test.ts src/adventure.test.ts src/journey.test.ts src/quests.test.ts src/expedition.test.ts src/interiors.test.ts"
+    "test": "node --experimental-strip-types --test src/flight.test.ts src/progression.test.ts src/adventure.test.ts src/quests.test.ts src/expedition.test.ts src/interiors.test.ts"
   },
   "dependencies": { "three": "^0.180.0" },
   "devDependencies": { "@types/three": "^0.180.0", "typescript": "~5.9.2", "vite": "^7.1.7" }

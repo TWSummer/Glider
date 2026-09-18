@@ -43,7 +43,7 @@ Green beacons are **recharge camps**. Flying within their field recharges the fa
 
 The field atlas uses terrain-derived coastlines and elevation contours, illustrated landmarks, known recharge camps and a heading-aware player marker. Select a landmark to inspect the region and optionally pin it. Drag to pan, scroll or use +/− to zoom, and use the glider locator or whole-valley button to reset your view. Arrow keys pan when a map landmark has keyboard focus.
 
-Adventure mode has no automatic waypoint trail or checkpoint rings. The HUD offers broad rumors. The local map shows nearby terrain, vents, contacts and known camps; the journal atlas lists eight regions. You can optionally pin a region or known recharge beacon, or show a chosen quest’s written clue. None of these pins selects a route through the world. A scenic ring course above the estate remains a separate, optional flight mode.
+Explore freely. The HUD offers broad rumors. The local map shows nearby terrain, vents, contacts and known camps; the journal atlas lists eight regions. You can optionally pin a region or known recharge beacon, or show a chosen quest’s written clue. None of these pins selects a route through the world.
 
 The valley extends from the lake to a storm ridge nearly four kilometers north. Its places share roads, trestle railways, canals and a history:
 
@@ -80,7 +80,7 @@ The mine introduces a cold draft. Aqueduct crossings add headwinds and sinking a
 
 ## Saving and backups
 
-Saves include flight position and attitude, health, fan charge, ammunition, currencies, upgrades, discovered regions, pickups, defeated guardians, uncollected enemy loot, checkpoint, ring progress, travel distance, play time, accepted and completed quests, learned schematics, interacted sites, delivered mail and the chosen quest clue.
+Saves include flight position and attitude, health, fan charge, ammunition, currencies, upgrades, discovered regions, pickups, defeated guardians, uncollected enemy loot, checkpoint, travel distance, play time, accepted and completed quests, learned schematics, interacted sites, delivered mail and the chosen quest clue.
 
 **Continue your adventure** restores the save. Earlier saves load with existing equipment and discoveries intact; missing quest fields are initialized automatically. Start a new adventure only if you want to replay the revised early progression. **Journal → Save & backup** provides manual save, JSON export and JSON import. Importing requires confirmation before replacing your current adventure. Invalid, truncated and unsupported saves are rejected without changing progress. The previous valid save is retained as a fallback. If browser storage is unavailable, the game reports it and JSON export remains usable.
 
@@ -88,7 +88,7 @@ Browser saves are local to the current origin (including port). They are not clo
 
 ## Code and validation
 
-- `src/flight.ts`: momentum, pitch/loop control, stall recovery, swept ring/projectile collision.
+- `src/flight.ts`: momentum, pitch/loop control, stall recovery, swept projectile collision.
 - `src/world.ts`: alpine scenery, instanced forests, water, sky and paper-plane geometry.
 - `src/adventure.ts`: physical interiors, lift sources, charging camps, pickups, enemies, projectiles and loot.
 - `src/progression.ts`: upgrade economy, finite fan battery, validated saves and fallback storage.
@@ -98,9 +98,9 @@ Browser saves are local to the current origin (including port). They are not clo
 - `src/journal.ts`: the quest interface and journal pages.
 - `src/game-map.ts`: terrain contours, cartography, landmark selection and map navigation.
 - `src/main.ts`: fixed-step gameplay, chase camera, controls, encounters, HUD and saves.
-- `src/*.test.ts`: physics, resource consumption, purchases, save round-trips, corruption recovery, combat, room clearance and complete discovery/ring-route simulations.
+- `src/*.test.ts`: physics, resource consumption, purchases, save round-trips, corruption recovery, combat, room clearance and exploration simulations.
 
-During development, `/scene-check.html` inspects the regions and `/playtest.html?site=millwright&ready=fan` exercises real encounter UI with isolated memory-only progress. Neither modifies player saves, and neither page is included in the production build. The automated tests cover physics, saves and migration, combat, quest requirements, full stock-glider turns with wing clearance in every building and all four Hearthside floors, cave/mine turns and branch connections, terrain-supported foundations, vertical shafts, the scenic ring course, fan-loft access and a finite-charge expedition to the observatory. Performance mode disables shadows and reduces pixel density.
+During development, `/Glider/scene-check.html` inspects the regions and `/Glider/playtest.html?site=millwright&ready=fan` exercises real encounter UI with isolated memory-only progress. Neither modifies player saves, and neither page is included in the production build. The automated tests cover physics, saves and migration, combat, quest requirements, full stock-glider turns with wing clearance in every building and all four Hearthside floors, cave/mine turns and branch connections, terrain-supported foundations, vertical shafts, fan-loft access and a finite-charge expedition to the observatory. Performance mode disables shadows and reduces pixel density.
 
 This is an original homage, not a port. No original game code or assets are included. Reference: https://en.wikipedia.org/wiki/Glider_(video_game).
 

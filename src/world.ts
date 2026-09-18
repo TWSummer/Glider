@@ -1,5 +1,4 @@
 import * as THREE from 'three';
-import { ROUTE, ringNormal } from './flight.ts';
 import { landHeight } from './atlas.ts';
 import { gradeTerrain, nearBuilding, nearTunnel } from './architecture-data.ts';
 
@@ -34,7 +33,6 @@ export const thermals = [{ x: -63, z: 68, radius: 24 }, { x: 45, z: -240, radius
 
 export class World {
   scene = new THREE.Scene();
-  rings: THREE.Group[] = [];
   birds: THREE.Group[] = [];
   thermalPoints: THREE.Points;
   water: THREE.Mesh<THREE.PlaneGeometry, THREE.ShaderMaterial>;
@@ -62,7 +60,6 @@ export class World {
     this.makeDock(-680, 549);
     this.makeSailboat(780, 380, 0.3);
     this.makeSailboat(-78, -265, -0.6);
-    this.makeRings();
     this.makeBirds();
     this.thermalPoints = this.makeThermals();
     this.plane = this.makePlane(); this.scene.add(this.plane);
@@ -194,18 +191,6 @@ export class World {
     const sailGeo = new THREE.BufferGeometry(); sailGeo.setAttribute('position', new THREE.Float32BufferAttribute([0, 1, 0, 0, 12, 0, 0, 1, 5.5], 3)); sailGeo.computeVertexNormals(); const sail = new THREE.Mesh(sailGeo, mat('#f6ecd4', { side: THREE.DoubleSide })); boat.add(sail); this.scene.add(boat);
   }
 
-  makeRings() {
-    ROUTE.forEach((point, index) => {
-      const group = new THREE.Group(); group.position.set(point.x, point.y, point.z);
-      const normal = ringNormal(index); group.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), new THREE.Vector3(normal.x, normal.y, normal.z));
-      const ring = new THREE.Mesh(new THREE.TorusGeometry(11, .3, 8, 64), new THREE.MeshStandardMaterial({ color: '#f8c66c', emissive: '#e7aa43', emissiveIntensity: .8, transparent: true, opacity: index === 0 ? 1 : .45 }));
-      group.add(ring);
-      const halo = new THREE.Mesh(new THREE.TorusGeometry(11, .7, 6, 64), new THREE.MeshBasicMaterial({ color: '#ffe3a2', transparent: true, opacity: .09, depthWrite: false })); group.add(halo);
-      for (let i = 0; i < 4; i++) { const tick = new THREE.Mesh(new THREE.BoxGeometry(.16, 1.5, .15), new THREE.MeshBasicMaterial({ color: '#fff4cf' })); const a = i * Math.PI / 2; tick.position.set(Math.sin(a) * 11, Math.cos(a) * 11, 0); tick.rotation.z = -a; group.add(tick); }
-      this.rings.push(group); this.scene.add(group);
-    });
-  }
-
   makePlane() {
     const group = new THREE.Group();
     const points = [
@@ -232,10 +217,6 @@ export class World {
     const positions = new Float32Array(thermals.length * 100 * 3);
     const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     const points = new THREE.Points(geometry, new THREE.PointsMaterial({ color: '#fff0b1', size: .55, transparent: true, opacity: .6, depthWrite: false })); points.frustumCulled = false; this.scene.add(points); return points;
-  }
-
-  setRingProgress(progress: number) {
-    this.rings.forEach((ring, i) => { ring.visible = i >= progress; (ring.children[0] as THREE.Mesh<THREE.TorusGeometry, THREE.MeshStandardMaterial>).material.opacity = i === progress ? 1 : .32; });
   }
 
   hitsObstacle(x: number, y: number, z: number): boolean {

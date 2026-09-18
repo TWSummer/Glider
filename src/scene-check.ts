@@ -6,7 +6,7 @@ import { initialFlight } from './flight';
 import { newProgress } from './progression';
 const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(innerWidth, innerHeight); renderer.setPixelRatio(Math.min(devicePixelRatio, 1.5)); renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap; renderer.toneMapping = THREE.ACESFilmicToneMapping; document.body.appendChild(renderer.domElement);
 const world = new World(), adventure = new Adventure(world.scene, world.plane), camera = new THREE.PerspectiveCamera(63, innerWidth / innerHeight, .3, 9000);
-world.rings.forEach(r => r.visible = false); world.plane.scale.setScalar(.72);
+world.plane.scale.setScalar(.72);
 world.thermalPoints.visible = false;
 let state = initialFlight(); const p = newProgress();
 function view(place: string) {

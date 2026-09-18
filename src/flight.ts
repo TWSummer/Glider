@@ -4,15 +4,6 @@ export interface FlightInput { left: boolean; right: boolean; up: boolean; down:
 export interface FlightTuning { drag: number; sink: number; turn: number; pitchRate: number; maxSpeed: number; thrust: number }
 export const BASE_TUNING: FlightTuning = { drag: .00135, sink: 1.65, turn: .82, pitchRate: 1.16, maxSpeed: 76, thrust: 0 };
 export const START: Point3 = { x: 0, y: 86, z: 450 };
-export const TRAIL_START: Point3 = { x: 0, y: 500, z: 450 };
-export const ROUTE: Point3[] = [
-  { x: 0, y: 49, z: 215 }, { x: 10, y: 50, z: 75 },
-  { x: -42, y: 51, z: -65 }, { x: -10, y: 57, z: -195 },
-  { x: 60, y: 64, z: -310 }, { x: 145, y: 68, z: -380 },
-  { x: 265, y: 64, z: -355 }, { x: 330, y: 57, z: -245 },
-  { x: 302, y: 51, z: -105 }, { x: 230, y: 50, z: 25 },
-  { x: 125, y: 46, z: 140 }, { x: 25, y: 43, z: 275 },
-].map((p, i) => ({ ...p, y: 488 - i * 8 }));
 export function initialFlight(): FlightState { return { ...START, heading: 0, pitch: 0, roll: 0, speed: 27, stalled: false }; }
 export function angleDifference(a: number, b: number) { return Math.atan2(Math.sin(a - b), Math.cos(a - b)); }
 export function forwardVector(state: Pick<FlightState, 'heading' | 'pitch'>): Point3 {
@@ -54,18 +45,4 @@ export function segmentSphere(from: Point3, to: Point3, center: Point3, radius: 
   const length2 = dx * dx + dy * dy + dz * dz;
   const t = length2 ? Math.max(0, Math.min(1, ((center.x - from.x) * dx + (center.y - from.y) * dy + (center.z - from.z) * dz) / length2)) : 0;
   return Math.hypot(from.x + dx * t - center.x, from.y + dy * t - center.y, from.z + dz * t - center.z) <= radius;
-}
-export function ringNormal(index: number): Point3 {
-  const prev = index === 0 ? TRAIL_START : ROUTE[index - 1];
-  const next = index === ROUTE.length - 1 ? ROUTE[index] : ROUTE[index + 1];
-  const dx = next.x - prev.x, dy = next.y - prev.y, dz = next.z - prev.z;
-  const length = Math.hypot(dx, dy, dz);
-  return { x: dx / length, y: dy / length, z: dz / length };
-}
-export function crossedRing(from: Point3, to: Point3, center: Point3, normal: Point3, radius = 11): boolean {
-  const before = (from.x - center.x) * normal.x + (from.y - center.y) * normal.y + (from.z - center.z) * normal.z;
-  const after = (to.x - center.x) * normal.x + (to.y - center.y) * normal.y + (to.z - center.z) * normal.z;
-  if (before * after > 0 || Math.abs(before - after) < 0.00001) return false;
-  const t = before / (before - after);
-  return Math.hypot(from.x + (to.x - from.x) * t - center.x, from.y + (to.y - from.y) * t - center.y, from.z + (to.z - from.z) * t - center.z) <= radius;
 }

@@ -10,7 +10,6 @@ const icons: Record<string, string> = {
   compass: '<circle cx="12" cy="12" r="9"/><path d="m16 8-2 6-6 2 2-6 6-2Z"/>',
   wind: '<path d="M3 8h12a3 3 0 1 0-3-3M2 12h17a3 3 0 1 1-3 3M5 17h5a2 2 0 1 1-2 2"/>',
   reset: '<path d="M3 11a9 9 0 1 1 2 7M3 4v7h7"/>',
-  ring: '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="4"/>',
   mountain: '<path d="m2 19 7-13 5 8 3-5 5 10H2Zm4-8 3 3 3-3"/>',
   help: '<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 0 1 6 0c0 2-3 2-3 4m0 3v.1"/>',
   leaf: '<path d="M20 3C8 2 2 7 5 15c8 4 15-1 15-12ZM4 21 16 8"/>',

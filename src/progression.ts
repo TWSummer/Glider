@@ -13,14 +13,13 @@ export interface Drop extends Point3 { id: string; reward: Reward }
 export interface Progress {
   parts: number; cores: number; ammo: number; fan: boolean; charge: number; health: number;
   upgrades: Record<Upgrade, number>; collected: string[]; defeated: string[]; discovered: string[];
-  drops: Drop[]; checkpoint: string; relic: boolean; flight: FlightState; distance: number; seconds: number; ringProgress: number;
-  gameMode: 'adventure' | 'trail';
+  drops: Drop[]; checkpoint: string; relic: boolean; flight: FlightState; distance: number; seconds: number;
   accepted: string[]; completed: string[]; blueprints: Upgrade[]; trackedQuest: string | null;
 }
 export interface SaveFile { version: 1; savedAt: string; progress: Progress }
 export const SAVE_KEY = 'glider-adventure-v1';
 export function newProgress(): Progress {
-  return { parts: 0, cores: 0, ammo: 16, fan: false, charge: 0, health: 100, upgrades: { speed: 0, turn: 0, glide: 0, battery: 0, motor: 0 }, collected: [], defeated: [], discovered: ['hearthside'], drops: [], checkpoint: 'home', relic: false, flight: initialFlight(), distance: 0, seconds: 0, ringProgress: 0, gameMode: 'adventure', accepted: [], completed: [], blueprints: [], trackedQuest: null };
+  return { parts: 0, cores: 0, ammo: 16, fan: false, charge: 0, health: 100, upgrades: { speed: 0, turn: 0, glide: 0, battery: 0, motor: 0 }, collected: [], defeated: [], discovered: ['hearthside'], drops: [], checkpoint: 'home', relic: false, flight: initialFlight(), distance: 0, seconds: 0, accepted: [], completed: [], blueprints: [], trackedQuest: null };
 }
 export const capacity = (p: Progress) => 100 + p.upgrades.battery * 60;
 export function flightTuning(p: Progress): FlightTuning {
@@ -80,8 +79,7 @@ export function parseSave(text: string): SaveFile | null {
     if (!['collected', 'defeated', 'discovered'].every(k => strings(p[k])) || typeof p.checkpoint !== 'string' || p.checkpoint.length > 50) return null;
     if (!Array.isArray(p.drops) || p.drops.length > 100 || !p.drops.every((d: any) => point(d) && typeof d.id === 'string' && d.id.length < 100 && rewardValid(d.reward))) return null;
     if (!point(p.flight) || !finite(p.flight.heading, -1e8, 1e8) || !finite(p.flight.pitch, -1e8, 1e8) || !finite(p.flight.roll, -2, 2) || !finite(p.flight.speed, 0, 200) || typeof p.flight.stalled !== 'boolean') return null;
-    if (!finite(p.distance, 0, 1e10) || !finite(p.seconds, 0, 1e10) || !Number.isInteger(p.ringProgress) || !finite(p.ringProgress, 0, 12)) return null;
-    if (p.gameMode !== 'adventure' && p.gameMode !== 'trail') return null;
+    if (!finite(p.distance, 0, 1e10) || !finite(p.seconds, 0, 1e10)) return null;
     if (['accepted', 'completed', 'blueprints'].some(k => p[k] !== undefined && !strings(p[k]))) return null;
     if (p.blueprints?.some((k: string) => !Object.hasOwn(UPGRADE_INFO, k))) return null;
     if (p.trackedQuest !== undefined && p.trackedQuest !== null && (typeof p.trackedQuest !== 'string' || p.trackedQuest.length > 99)) return null;

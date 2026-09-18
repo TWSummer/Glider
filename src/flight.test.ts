@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialFlight, stepFlight, crossedRing, ringNormal, ROUTE, START, BASE_TUNING, segmentSphere, type FlightInput } from './flight.ts';
+import { initialFlight, stepFlight, START, BASE_TUNING, segmentSphere, type FlightInput } from './flight.ts';
 import { newProgress, flightTuning } from './progression.ts';
 const neutral: FlightInput = { left: false, right: false, up: false, down: false, boost: false };
 function fly(input: Partial<FlightInput>, seconds = 2, speed = 27, lift = 0) {
@@ -40,12 +40,6 @@ test('Shift has no unlimited boost: only supplied motor thrust adds power', () =
 test('pitch inversion and bounded time steps behave correctly', () => {
   const s = initialFlight(); for (let i = 0; i < 60; i++) stepFlight(s, { ...neutral, up: true }, 1 / 60, 0, true); assert.ok(s.y < START.y - 11);
   const gap = initialFlight(); stepFlight(gap, neutral, 10); assert.ok(Math.abs(gap.z - START.z) < 2);
-});
-test('rings require crossing the plane inside their opening', () => {
-  const c = { x: 0, y: 43, z: 215 }, n = { x: 0, y: 0, z: -1 };
-  assert.equal(crossedRing({ x: 0, y: 43, z: 220 }, { x: 0, y: 43, z: 210 }, c, n), true);
-  assert.equal(crossedRing({ x: 14, y: 43, z: 220 }, { x: 14, y: 43, z: 210 }, c, n), false); assert.equal(crossedRing(c, c, c, n), false);
-  ROUTE.forEach((_, i) => { const normal = ringNormal(i); assert.ok(Math.abs(Math.hypot(normal.x, normal.y, normal.z) - 1) < 1e-10); });
 });
 test('fast projectiles use swept collision rather than skipping enemies', () => {
   assert.equal(segmentSphere({ x: 0, y: 0, z: 30 }, { x: 0, y: 0, z: -30 }, { x: 0, y: 0, z: 0 }, 5), true);

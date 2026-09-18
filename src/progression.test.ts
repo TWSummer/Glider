@@ -20,7 +20,7 @@ test('pickups cannot be collected twice; maxed duplicate upgrades become scrap',
   assert.equal(enemyReward(4, 2).upgrade, undefined); assert.ok(enemyReward(2, 3).cores); assert.ok(enemyReward(0, 1).ammo);
 });
 test('save round-trip preserves the full adventure and uncollected enemy loot', () => {
-  const p = newProgress(); p.parts = 37; p.fan = true; p.charge = 56; p.upgrades.glide = 2; p.collected = ['fan']; p.defeated = ['guardian-0']; p.discovered.push('cavern'); p.checkpoint = 'cave'; p.flight.pitch = 7.3; p.flight.z = -550; p.ringProgress = 4; p.gameMode = 'trail'; p.drops = [{ id: 'loot-guardian-0', x: 1, y: 2, z: 3, reward: { parts: 7, ammo: 4 } }];
+  const p = newProgress(); p.parts = 37; p.fan = true; p.charge = 56; p.upgrades.glide = 2; p.collected = ['fan']; p.defeated = ['guardian-0']; p.discovered.push('cavern'); p.checkpoint = 'cave'; p.flight.pitch = 7.3; p.flight.z = -550; p.drops = [{ id: 'loot-guardian-0', x: 1, y: 2, z: 3, reward: { parts: 7, ammo: 4 } }];
   assert.deepEqual(parseSave(serializeSave(p))?.progress, p);
 });
 test('malformed, future, negative, overcharged and truncated saves are rejected', () => {
