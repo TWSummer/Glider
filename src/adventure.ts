@@ -1,9 +1,11 @@
+import { cargoUsed, CONTRACTS } from './commerce.ts';
+import { BOSSES, enemyHealth, bandDamage, bossPhase, bossVulnerable, lootUnlocked, type Boss } from './combat.ts';
 import * as THREE from 'three';
 import { buildingAt, INTERIOR_LIFTS, relocate } from './architecture-data.ts';
 import { type Point3, type FlightState, forwardVector, segmentSphere } from './flight.ts';
 import { REGIONS, EXTRA_SUPPLIES, sanctuaryOpen, regionAt } from './atlas.ts';
 import { buildValley, VALLEY_LIFTS, VALLEY_STATIONS, inTunnel, tunnelWall, tunnelCeiling } from './valley.ts';
-import { type Progress, type Reward, type Drop, collect, enemyReward, recharge } from './progression.ts';
+import { type Progress, type Reward, type Drop, collect, enemyReward } from './progression.ts';
 
 import { makePickup, pickupName, makeEnemy, enemyKind, animateEnemy, type EnemyKind } from './game-visuals.ts';
 import { siteQuestStatus } from './quests.ts';
@@ -13,7 +15,7 @@ export const STATIONS = [
   { id: 'home', name: 'Hearthside front terrace', x: 0, y: 87, z: 370 },
   { id: 'west', name: 'West crossing', x: -70, y: 67, z: -210 },
   { id: 'cave', name: 'Cavern camp', x: -405, y: 83, z: -305 },
-  { id: 'ridge', name: 'Highland relay', x: 360, y: 108, z: -750 },
+  { id: 'ridge', name: 'Highland relay', x: 360, y: 139, z: -750 },
   { id: 'north', name: 'Northwatch camp', x: -120, y: 115, z: -840 },
   { id: 'temple', name: 'Temple anchorage', x: 310, y: 155, z: -945 },
   ...VALLEY_STATIONS,
@@ -35,7 +37,7 @@ export const LIFTS = [
   { x: -520, z: -558, base: 57, ceiling: 107, radius: 19, strength: 14, kind: 'vent' },
   { x: 305, z: -375, base: 1, ceiling: 105, radius: 40, strength: 13, kind: 'thermal' },
   { x: 350, z: -570, base: 1, ceiling: 143, radius: 42, strength: 16, kind: 'thermal' },
-  { x: 360, z: -750, base: 55, ceiling: 167, radius: 34, strength: 17, kind: 'vent' },
+  { x: 360, z: -750, base: 113, ceiling: 190, radius: 34, strength: 17, kind: 'vent' },
   { x: -120, z: -840, base: 45, ceiling: 163, radius: 49, strength: 17, kind: 'vent' },
   { x: 310, z: -945, base: 92, ceiling: 181, radius: 31, strength: 18, kind: 'vent' },
   { x: 285, z: -1085, base: 132, ceiling: 190, radius: 21, strength: 16, kind: 'vent' },
@@ -65,7 +67,7 @@ export const SUPPLIES: (Drop & { name: string })[] = [
   { id: 'cavern-entrance', name: 'Cavern supplies', x: -450, y: 68, z: -357, reward: { parts: 15, ammo: 15, charge: 70 } },
   { id: 'cavern-core', name: 'Resonant wind core', x: -490, y: 77, z: -475, reward: { cores: 2, parts: 20, charge: 60 } },
   { id: 'cavern-folds', name: 'Ancient flight plans', x: -535, y: 100, z: -630, reward: { cores: 1, parts: 12, charge: 45 } },
-  { id: 'ridge-supply', name: 'Highland supplies', x: 360, y: 111, z: -725, reward: { parts: 16, charge: 90, ammo: 16 } },
+  { id: 'ridge-supply', name: 'Highland supplies', x: 360, y: 142, z: -725, reward: { parts: 16, charge: 90, ammo: 16 } },
   { id: 'temple-gate', name: 'Guardian cache', x: 310, y: 154, z: -1018, reward: { parts: 22, charge: 90, ammo: 18 } },
   { id: 'temple-rudder', name: 'Skyweaver rudder', x: 270, y: 155, z: -1090, reward: { cores: 1, parts: 10 } },
   { id: 'skyheart', name: 'The Skyheart', x: 310, y: 171, z: -1210, reward: { relic: true, cores: 3, parts: 45, charge: 100 } },
@@ -86,7 +88,7 @@ export function placeAt(p: Point3): typeof PLACES[number] | null {
 export function difficultyAt(p: Point3): number { return regionAt(p).tier; }
 const material = (color: string, props = {}) => new THREE.MeshStandardMaterial({ color, roughness: .88, ...props });
 const distance = (a: Point3, b: Point3) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-export interface Enemy { id: string; tier: number; hp: number; home: THREE.Vector3; mesh: THREE.Group; cooldown: number; index: number; kind: EnemyKind; moving: THREE.Object3D[]; name: string }
+export interface Enemy { id: string; tier: number; hp: number; home: THREE.Vector3; mesh: THREE.Group; cooldown: number; index: number; kind: EnemyKind; moving: THREE.Object3D[]; name: string; maxHp: number; boss?: Boss; clock: number; telegraph?: THREE.Mesh<THREE.SphereGeometry, THREE.MeshBasicMaterial> }
 interface Shot { mesh: THREE.Mesh; velocity: THREE.Vector3; life: number; hostile: boolean; damage: number }
 
 export class Adventure {
@@ -98,6 +100,7 @@ export class Adventure {
   propellers: THREE.Object3D[] = [];
   labels: THREE.Object3D[] = [];
   fan: THREE.Group;
+  cargoRack = new THREE.Group(); passenger = new THREE.Group();
   particles: THREE.Points;
   valley: ReturnType<typeof buildValley>;
   solidGrid = new Map<string, THREE.Box3[]>();
@@ -115,13 +118,18 @@ export class Adventure {
     this.buildLifts(); this.buildStations();
     this.sanctuary = new THREE.Mesh(new THREE.SphereGeometry(12, 20, 12), material('#c2a3e8', { transparent: true, opacity: .35, wireframe: true, emissive: '#986ac2', emissiveIntensity: .7 })); this.sanctuary.position.set(310, 171, -1210); scene.add(this.sanctuary);
     for (const box of this.solids) for (let x = Math.floor(box.min.x / 64); x <= Math.floor(box.max.x / 64); x++) for (let z = Math.floor(box.min.z / 64); z <= Math.floor(box.max.z / 64); z++) { const key = x + ',' + z; if (!this.solidGrid.has(key)) this.solidGrid.set(key, []); this.solidGrid.get(key)!.push(box); }
-    SUPPLIES.forEach(supply => this.addPickup(supply)); this.buildEnemies();
+    SUPPLIES.forEach(supply => this.addPickup(supply)); this.buildEnemies(); this.buildBosses();
     const geometry = new THREE.BufferGeometry(); geometry.setAttribute('position', new THREE.Float32BufferAttribute(new Float32Array(LIFTS.length * 70 * 3), 3));
     this.particles = new THREE.Points(geometry, new THREE.PointsMaterial({ color: '#ffdd9a', size: .65, transparent: true, opacity: .7, depthWrite: false }));
     this.particles.frustumCulled = false; scene.add(this.particles);
     this.fan = new THREE.Group(); this.fan.position.set(0, -.6, 2.5);
     const shroud = new THREE.Mesh(new THREE.TorusGeometry(.85, .18, 6, 16), material('#576761', { metalness: .65 })); this.fan.add(shroud);
     const blades = new THREE.Group(); for (let i = 0; i < 3; i++) { const blade = new THREE.Mesh(new THREE.BoxGeometry(.22, 1.3, .09), material('#c69e61', { metalness: .5 })); blade.rotation.z = i * Math.PI / 3; blades.add(blade); } this.fan.add(blades); plane.add(this.fan); this.propellers.push(blades);
+    for(let i=0;i<4;i++) { const crate=new THREE.Mesh(new THREE.BoxGeometry(.9,.65,1),material('#b79765'));crate.position.set((i%2-.5)*1.15,-.8,1+Math.floor(i/2)*1.1);this.cargoRack.add(crate);const strap=new THREE.Mesh(new THREE.BoxGeometry(.15,.68,1.03),material('#4c7567'));strap.position.copy(crate.position);this.cargoRack.add(strap); }
+    const seat=new THREE.Mesh(new THREE.BoxGeometry(.8,.2,.9),material('#72897c'));seat.position.set(0,.1,1);this.passenger.add(seat);
+    const body=new THREE.Mesh(new THREE.ConeGeometry(.38,.9,4),material('#eee1b6'));body.position.set(0,.6,1);this.passenger.add(body);
+    const head=new THREE.Mesh(new THREE.IcosahedronGeometry(.26),material('#e7cda4'));head.position.set(0,1.2,1);this.passenger.add(head);plane.add(this.cargoRack,this.passenger);
+
   }
   box(x: number, y: number, z: number, w: number, h: number, d: number, mat: THREE.Material, solid = true) {
     const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat); mesh.position.set(x, y, z); mesh.castShadow = true; mesh.receiveShadow = true; this.scene.add(mesh);
@@ -157,7 +165,7 @@ export class Adventure {
       const beacon = new THREE.Mesh(new THREE.CylinderGeometry(2.6, 2.6, 6, 8), material('#acdcb4', { emissive: '#65a98b', emissiveIntensity: 2 })); beacon.position.set(station.x + 12, station.y, station.z); this.scene.add(beacon);
       this.box(station.x + 12, floor + 10, station.z, 1.4, 20, 1.4, material('#8b8063'));
       const light = new THREE.Mesh(new THREE.CylinderGeometry(20, 20, 1, 40, 1, true), new THREE.MeshBasicMaterial({ color: '#addfac', transparent: true, opacity: .35, side: THREE.DoubleSide })); light.position.set(station.x, floor + 3, station.z); this.scene.add(light);
-      const label = this.label('⚡ ' + station.name.toUpperCase(), '#bbf2d2'); label.position.set(station.x, station.y + 21, station.z); label.scale.multiplyScalar(.67); this.scene.add(label);
+      const label = this.label('CAMP · ' + station.name.toUpperCase(), '#bbf2d2'); label.position.set(station.x, station.y + 21, station.z); label.scale.multiplyScalar(.67); this.scene.add(label);
     });
   }
   addPickup(data: Drop) {
@@ -165,6 +173,7 @@ export class Adventure {
     if (existing) { existing.data = data; existing.mesh.position.set(data.x, data.y, data.z); existing.mesh.visible = true; return; }
     const mesh = makePickup(data); mesh.position.set(data.x, data.y, data.z);
     const tag = this.label(pickupName(data) + ' · FLY THROUGH', '#ffe0a3'); tag.name = 'pickup-label'; tag.position.y = 9; tag.scale.multiplyScalar(.8); mesh.add(tag);
+    if(data.id==='sigil-copper') { const lock=this.label('SEALED · DEFEAT THE COPPER COLOSSUS','#f3be87');lock.name='lock-label';lock.position.y=10;lock.scale.multiplyScalar(.8);mesh.add(lock);const shell=new THREE.Mesh(new THREE.SphereGeometry(5,12,8),material('#c69763',{wireframe:true,transparent:true,opacity:.4}));shell.name='lock-shell';mesh.add(shell); }
     this.scene.add(mesh); this.pickups.set(data.id, { data, mesh });
   }
   buildEnemies() {
@@ -182,14 +191,28 @@ export class Adventure {
     spawns.forEach(([x, y, z, tier], index) => {
       const visual = makeEnemy(enemyKind(index)), mesh = visual.mesh; mesh.position.set(x, y, z);
       const tag = this.label(visual.name.toUpperCase() + ' · TIER ' + tier, '#ffb4a1'); tag.position.y = 8; tag.scale.multiplyScalar(.58); mesh.add(tag); mesh.userData.tag = tag;
-      this.scene.add(mesh); this.enemies.push({ ...visual, id: `guardian-${index}`, tier, hp: tier, home: new THREE.Vector3(x, y, z), cooldown: 2 + index % 3, index });
+      this.scene.add(mesh); this.enemies.push({ ...visual, id: `guardian-${index}`, tier, hp: enemyHealth(tier), maxHp: enemyHealth(tier), clock: 0, home: new THREE.Vector3(x, y, z), cooldown: 2 + index % 3, index });
     });
+  }
+  buildBosses() {
+    for (const boss of BOSSES) {
+      const visual = makeEnemy(boss.kind), mesh = visual.mesh;
+      mesh.scale.setScalar(boss.id === 'boss-tempest' ? 3 : 2.1); mesh.position.set(boss.x, boss.y, boss.z);
+      const core = new THREE.Mesh(new THREE.SphereGeometry(6, 16, 10), new THREE.MeshBasicMaterial({ color: '#efb06e', transparent: true, opacity: .2, wireframe: true })); mesh.add(core);
+      const tag = this.label(boss.name.toUpperCase(), '#ffca8e'); tag.position.y = 12; tag.scale.multiplyScalar(.55); mesh.add(tag); mesh.userData.tag = tag;
+      this.scene.add(mesh); this.enemies.push({ ...visual, id: boss.id, name: boss.name, tier: boss.tier, hp: boss.hp, maxHp: boss.hp, home: new THREE.Vector3(boss.x,boss.y,boss.z), cooldown: 0, index: this.enemies.length, boss, clock: 0, telegraph: core });
+    }
+  }
+  resetCombat() {
+    for (const enemy of this.enemies) { enemy.hp = enemy.maxHp; enemy.clock = 0; enemy.cooldown = 2; }
+    for (const shot of this.shots) this.scene.remove(shot.mesh);
+    this.shots = [];
   }
   sync(p: Progress) {
     this.markerState = '';
     for (const { data, mesh } of this.pickups.values()) mesh.visible = !p.collected.includes(data.id) && (!data.id.startsWith('loot-') || p.drops.some(drop => drop.id === data.id));
     p.drops.filter(drop => !p.collected.includes(drop.id)).forEach(drop => this.addPickup(drop));
-    this.enemies.forEach(enemy => { enemy.mesh.visible = !p.defeated.includes(enemy.id); enemy.hp = enemy.tier; });
+    this.enemies.forEach(enemy => { enemy.mesh.visible = !p.defeated.includes(enemy.id); enemy.hp = enemy.maxHp; enemy.clock = 0; });
     this.fan.visible = p.fan;
     this.shots.forEach(shot => this.scene.remove(shot.mesh)); this.shots = [];
     this.shotCooldown = 0;
@@ -216,7 +239,7 @@ export class Adventure {
     // A small aim assist helps hit moving paper enemies without mouse aiming.
     const candidates = this.enemies.filter(e => e.mesh.visible && e.mesh.position.distanceTo(origin) < 125).sort((a, b) => a.mesh.position.distanceTo(origin) - b.mesh.position.distanceTo(origin));
     for (const enemy of candidates) { const target = enemy.mesh.position.clone().sub(origin).normalize(); if (target.dot(direction) > .976 && !this.pathBlocked(origin, enemy.mesh.position, .1)) { direction.copy(target); break; } }
-    this.spawnShot(origin.addScaledVector(direction, 5), direction.multiplyScalar(110 + state.speed * .4), false, 1); p.ammo--; this.shotCooldown = .28; return true;
+    this.spawnShot(origin.addScaledVector(direction, 5), direction.multiplyScalar(110 + state.speed * .4), false, bandDamage(p)); p.ammo--; this.shotCooldown = .34; return true;
   }
   spawnShot(origin: THREE.Vector3, velocity: THREE.Vector3, hostile: boolean, damage: number) {
     const mesh = new THREE.Mesh(this.bandGeometry, hostile ? this.dangerMaterial : this.bandMaterial); mesh.position.copy(origin); mesh.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), velocity.clone().normalize()); this.scene.add(mesh);
@@ -230,11 +253,13 @@ export class Adventure {
     this.sanctuary.visible = !sanctuaryOpen(p) && !p.relic; this.sanctuary.rotation.y = time * .2;
     this.valley.lens.rotation.z += dt * (p.completed.includes('starfall') ? .8 : .035);
     this.valley.skybeam.visible = p.completed.includes('starfall');
-    this.fan.visible = p.fan; this.propellers.forEach(propeller => propeller.rotation.z += dt * (powered ? 65 : 1.5));
+    this.fan.visible = p.fan; this.cargoRack.visible=cargoUsed(p)>0;this.passenger.visible=!!p.freight && CONTRACTS.find(c=>c.id===p.freight)?.kind==='passenger'; this.propellers.forEach(propeller => propeller.rotation.z += dt * (powered ? 65 : 1.5));
     const attr = this.particles.geometry.getAttribute('position');
     LIFTS.forEach((v, k) => { const enabled = !('requires' in v) || !v.requires || p.completed.includes(v.requires); for (let i = 0; i < 70; i++) { const a = i * 2.4 + time * .5, h = ((i * 1.73 + time * 7) % (v.ceiling - v.base)), r = (4 + i % 15) / 20 * v.radius; attr.setXYZ(k * 70 + i, v.x + Math.cos(a) * r, enabled ? v.base + h : -100, v.z + Math.sin(a) * r); } }); attr.needsUpdate = true;
     for (const { data, mesh } of this.pickups.values()) {
       mesh.rotation.y = Math.sin(time * .6 + data.x) * .32; const tag = mesh.getObjectByName('pickup-label'); if (tag) tag.visible = active && distance(state, mesh.position) < 55; mesh.position.y = data.y + Math.sin(time * 1.7 + data.x) * .9;
+      const locked=!lootUnlocked(p,data.id),lock=mesh.getObjectByName('lock-label'),shell=mesh.getObjectByName('lock-shell');if(lock)lock.visible=locked&&active&&distance(state,mesh.position)<100;if(shell)shell.visible=locked;
+      if (locked) { if (tag) tag.visible = false; continue; }
       if (data.id === 'skyheart' && !sanctuaryOpen(p) && !p.relic) continue;
       if (active && mesh.visible && distance(state, mesh.position) < (data.reward.fan ? 14 : 11) && !this.pathBlocked(state, mesh.position, .1)) {
         const message = collect(p, data.id, data.reward); mesh.visible = false; if (message) onEvent(`${pickupName(data)} · ${message}`, true);
@@ -242,26 +267,41 @@ export class Adventure {
     }
     if (!active) return;
     this.shotCooldown = Math.max(0, this.shotCooldown - dt);
-    STATIONS.forEach(station => { if (distance(state, station) < 22) { recharge(p, dt); if (!p.discovered.includes('station-' + station.id)) p.discovered.push('station-' + station.id); if (p.checkpoint !== station.id) { p.checkpoint = station.id; onEvent(`${station.name} reached · checkpoint saved`, true); } } });
+    STATIONS.forEach(station => { if (distance(state, station) < 22) { if (!p.discovered.includes('station-' + station.id)) p.discovered.push('station-' + station.id); if (p.checkpoint !== station.id) { p.checkpoint = station.id; onEvent(`${station.name} reached · checkpoint saved`, true); } } });
     const place = regionAt(state); if (Math.hypot(place.x - state.x, place.z - state.z) < place.radius && !p.discovered.includes(place.id)) { p.discovered.push(place.id); onEvent(`${place.name} discovered · region ${place.tier}`, true); }
     for (const enemy of this.enemies) {
       if (!enemy.mesh.visible) continue;
-      enemy.mesh.position.copy(enemy.home).add(new THREE.Vector3(Math.sin(time * .35 + enemy.index) * (enemy.tier === 1 ? 4 : 7), Math.sin(time * .7 + enemy.index) * 2.8, Math.cos(time * .35 + enemy.index) * 5));
-      enemy.mesh.lookAt(state.x, state.y, state.z); animateEnemy(enemy.kind, enemy.moving, time + enemy.index); enemy.mesh.userData.tag.visible = distance(state, enemy.mesh.position) < 70;
-      const d = distance(enemy.mesh.position, state); enemy.cooldown -= dt;
-      if (d < 90 + enemy.tier * 10 && enemy.cooldown <= 0 && !this.pathBlocked(enemy.mesh.position, state, .1)) { const dir = new THREE.Vector3(state.x, state.y, state.z).sub(enemy.mesh.position).normalize(); this.spawnShot(enemy.mesh.position.clone().addScaledVector(dir, 5), dir.multiplyScalar(20 + enemy.tier * 5), true, 6 + enemy.tier * 4); enemy.cooldown = 4.5 - enemy.tier * .65; }
-      if (d < 5.5) onDamage(12);
+      const d = distance(enemy.mesh.position, state);
+      if (d > (enemy.boss ? 270 : 210)) { enemy.hp = enemy.maxHp; enemy.clock = 0; enemy.cooldown = 1.8; }
+      else enemy.clock += dt;
+      const orbit = enemy.boss ? enemy.boss.id === 'boss-tempest' ? 28 : 11 : enemy.tier * 3;
+      const next = enemy.home.clone().add(new THREE.Vector3(Math.sin(time * .5 + enemy.index) * orbit, Math.sin(time * .7 + enemy.index) * (enemy.boss ? 3 : 2.8), Math.cos(time * .5 + enemy.index) * orbit));
+      if (!this.pathBlocked(enemy.mesh.position, next, enemy.boss ? 7 : 3)) enemy.mesh.position.copy(next);
+      enemy.mesh.lookAt(state.x, state.y, state.z); animateEnemy(enemy.kind, enemy.moving, time + enemy.index); enemy.mesh.userData.tag.visible = d < (enemy.boss ? 230 : 70);
+      const phase = bossPhase(enemy.clock);
+      if (enemy.telegraph) { enemy.telegraph.material.color.set(phase === 'cooling' ? '#83e0d3' : '#ffab62'); enemy.telegraph.material.opacity = phase === 'cooling' ? .12 : .35 + Math.sin(time * 12) * .12; enemy.telegraph.scale.setScalar(phase === 'warning' ? 1 + (enemy.clock % 7.2) * .2 : 1); }
+      enemy.cooldown -= dt;
+      if (d < (enemy.boss ? 225 : 100 + enemy.tier * 16) && enemy.cooldown <= 0 && (!enemy.boss || phase === 'volley') && !this.pathBlocked(enemy.mesh.position, state, .1)) {
+        const forward = forwardVector(state), lead = enemy.tier >= 3 ? Math.min(1.25, d / 100) : .15;
+        const dir = new THREE.Vector3(state.x + forward.x * state.speed * lead, state.y + forward.y * state.speed * lead, state.z + forward.z * state.speed * lead).sub(enemy.mesh.position).normalize();
+        const spread = enemy.boss ? [-.19, 0, .19] : enemy.tier === 4 ? [-.10,.10] : [0];
+        for (const angle of spread) { const aim = dir.clone().applyAxisAngle(new THREE.Vector3(0,1,0), angle); this.spawnShot(enemy.mesh.position.clone().addScaledVector(aim, enemy.boss ? 17 : 6), aim.multiplyScalar(enemy.boss ? 64 : 28 + enemy.tier * 9), true, enemy.boss ? 28 : 7 + enemy.tier * 5); }
+        enemy.cooldown = enemy.boss ? .65 : 3.5 - enemy.tier * .55;
+      }
+      if (d < (enemy.boss ? 15 : 5.5)) onDamage(enemy.boss ? 25 : 12);
     }
     for (let i = this.shots.length - 1; i >= 0; i--) {
       const shot = this.shots[i], before = shot.mesh.position.clone(); shot.mesh.position.addScaledVector(shot.velocity, dt); shot.life -= dt;
       if (this.pathBlocked(before, shot.mesh.position, .1)) shot.life = 0;
       if (shot.life > 0 && shot.hostile && segmentSphere(before, shot.mesh.position, state, 3.8)) { onDamage(shot.damage); shot.life = 0; }
       if (shot.life > 0 && !shot.hostile) for (const enemy of this.enemies) {
-        if (!enemy.mesh.visible || !segmentSphere(before, shot.mesh.position, enemy.mesh.position, 5.5)) continue;
-        enemy.hp--; shot.life = 0;
+        if (!enemy.mesh.visible || !segmentSphere(before, shot.mesh.position, enemy.mesh.position, enemy.boss ? 13 : 5.5)) continue;
+        shot.life = 0;
+        if (enemy.boss && !bossVulnerable(enemy.clock)) { onEvent('Shielded · dodge the volley, then fire when the core turns blue.', false); break; }
+        enemy.hp -= shot.damage;
         if (enemy.hp <= 0) {
           enemy.mesh.visible = false; p.defeated.push(enemy.id);
-          const drop: Drop = { id: 'loot-' + enemy.id, x: enemy.mesh.position.x, y: enemy.mesh.position.y, z: enemy.mesh.position.z, reward: enemyReward(enemy.index, enemy.tier) };
+          const drop: Drop = { id: 'loot-' + enemy.id, x: enemy.mesh.position.x, y: enemy.mesh.position.y, z: enemy.mesh.position.z, reward: enemy.boss ? { parts: enemy.boss.reward, cores: 3, ammo: 18 } : enemyReward(enemy.index, enemy.tier) };
           p.drops.push(drop); this.addPickup(drop); onEvent(`${enemy.name} defeated · fly through the supply drop`, true);
         } else onEvent(`${enemy.name} hit · ${enemy.hp} band${enemy.hp === 1 ? '' : 's'} to go`, false);
         break;

@@ -114,4 +114,4 @@ export function applyAir(p: Point3, progress: Progress, heading: number, dt: num
   p.z += air.headwind * folds * Math.max(.15, Math.cos(heading)) * dt;
   p.x += Math.sin(time * .43 + p.z * .009) * air.crosswind / (1 + progress.upgrades.turn * .45) * dt;
 }
-export function sanctuaryOpen(p: Progress) { return ['sigil-echo', 'sigil-copper', 'sigil-bell'].every(id => p.collected.includes(id)) && ['altar-west', 'altar-east'].every(id => p.discovered.includes('site:' + id)); }
+export function sanctuaryOpen(p: Progress) { return p.defeated.includes('boss-heart') && ['sigil-echo', 'sigil-copper', 'sigil-bell'].every(id => p.collected.includes(id)) && ['altar-west', 'altar-east'].every(id => p.discovered.includes('site:' + id)); }

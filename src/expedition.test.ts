@@ -32,7 +32,7 @@ test('a starter glider can reach the mill loft and find a component without a mo
   assert.ok(p.collected.includes('fan-housing')); assert.equal(p.fan, false);
 });
 test('an equipped glider can cross the restored high route with finite charge', () => {
-  const p = newProgress(); p.fan = true; p.upgrades = { speed: 2, glide: 2, turn: 2, motor: 2, battery: 2 }; p.charge = 220; p.completed = ['waterways'];
+  const p = newProgress(); p.fan = true; p.upgrades = { ...p.upgrades, speed: 2, glide: 2, turn: 2, motor: 2, battery: 2 }; p.charge = 220; p.completed = ['waterways'];
   fly(p, [302, 150, -2010], [[305, 160, -2160], [305, 215, -2215], [60, 245, -2300], [60, 250, -2480], [60, 265, -2630], [-80, 275, -2630], [-80, 272, -2710], [-80, 270, -2770], [-80, 330, -2800], [-80, 330, -2960], [-250, 330, -3050], [-250, 327, -3190]]);
   assert.ok(p.discovered.includes('observatory')); assert.ok(p.charge >= 0 && p.charge <= 220);
 });

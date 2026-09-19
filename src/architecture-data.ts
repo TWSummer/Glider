@@ -47,15 +47,30 @@ export const TUNNEL_LAYOUT = [
 ];
 // The same grading is used by render meshes and ground collision. Foundations
 // meet a landscaped apron; a basement is excavated only inside its outer walls.
+export function courtDistance(b: Building, x: number, z: number) {
+  const dx = Math.max(0, Math.abs(x-b.x)-b.width/2-8);
+  const dz = Math.max(0, b.z-b.depth/2-8-z, z-(b.z+b.depth/2+64));
+  return Math.hypot(dx,dz);
+}
+export const inBuildingCourt = (x: number,z: number) => BUILDINGS.some(b=>courtDistance(b,x,z)===0);
+export function landscapeHeight(x: number,z: number,height: number) {
+  let weight=0, level=0, influence=0;
+  for(const b of BUILDINGS) {
+    const d=courtDistance(b,x,z), reach=Math.max(200,Math.min(300,b.ground));
+    if(d===0) return b.ground-4;
+    if(d>=reach) continue;
+    const u=d/reach, fade=1-u*u*(3-2*u), w=fade/Math.max(.0001,d*d);
+    weight+=w; level+=(b.ground-4)*w; influence=Math.max(influence,fade);
+  }
+  return weight ? height+(level/weight-height)*influence : height;
+}
 export function gradeTerrain(x: number, z: number, height: number, excavated = true): number {
-  let h = height, nearest = Infinity, apron = height, foundationLevel = height;
   for (const b of BUILDINGS) {
     const dx = Math.abs(x - b.x) - b.width / 2, dz = Math.abs(z - b.z) - b.depth / 2;
     if (dx < 0 && dz < 0) return excavated ? b.floors[0] - 2 : b.ground - 4;
-    const distance = Math.max(dx, dz);
-    if (distance < 60 && distance < nearest) { nearest = distance; foundationLevel = b.ground - 4; const t = Math.max(0, Math.min(1, distance / 60)); apron = height * t + foundationLevel * (1 - t); }
   }
-  h = apron;
+  const h = landscapeHeight(x,z,height);
+  if(inBuildingCourt(x,z)) return h;
   let tunnelFloor = Infinity, tunnelRoof = -Infinity, ridge = h;
   for (const tunnel of TUNNEL_LAYOUT) for (let i = 1; i < tunnel.points.length; i++) {
     if (z > (tunnel.kind === 'mine' ? -1060 : -300)) continue;
@@ -66,8 +81,7 @@ export function gradeTerrain(x: number, z: number, height: number, excavated = t
     else if (r < 1.65) ridge = Math.max(ridge, h + (Math.max(h, cy + 18) - h) * (1 - (r - 1) / .65));
   }
   if (Number.isFinite(tunnelFloor)) return excavated ? Math.min(h, tunnelFloor) : tunnelRoof;
-  h = nearest < 60 ? ridge * (nearest / 60) + foundationLevel * (1 - nearest / 60) : ridge;
-  return h;
+  return landscapeHeight(x,z,ridge);
 }
 export const INTERIOR_LIFTS = BUILDINGS.map(b => ({ x: b.x, z: b.z, base: b.floors[0] + 2, ceiling: roofHeight(b) + 35, radius: Math.min(54, b.width * .22), strength: 11, kind: 'vent' }));
 

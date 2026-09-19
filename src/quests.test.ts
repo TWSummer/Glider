@@ -1,3 +1,5 @@
+import { dock } from './landing.ts';
+import { HARBORS } from './settlements.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newProgress, collect, buyUpgrade, parseSave, serializeSave, flightTuning } from './progression.ts';
@@ -17,7 +19,7 @@ test('fan requires discovering the mill, all three components, and returning to 
   const parts = p.parts; assert.equal(finishQuest(p, 'little-engine', site('millwright')), null); assert.equal(p.parts, parts);
 });
 test('advanced equipment is earned from regional quests, with currency still required', () => {
-  const p = newProgress(); p.parts = 300; p.cores = 6; buyUpgrade(p, 'glide');
+  const p = newProgress(); dock(p,p.flight,HARBORS[0]); p.parts = 300; p.cores = 6; buyUpgrade(p, 'glide');
   assert.equal(buyUpgrade(p, 'glide'), false);
   interactSite(p, 'keeper'); acceptQuest(p, 'field-notes'); p.collected.push('estate-note-a', 'estate-note-b', 'estate-note-c');
   assert.ok(finishQuest(p, 'field-notes', site('keeper'))); assert.ok(p.blueprints.includes('glide'));
@@ -40,10 +42,10 @@ test('restoring the mine and aqueduct changes the real lift field and survives s
   assert.ok(finishQuest(p, 'waterways', site('waterkeeper'))); const saved = parseSave(serializeSave(p))!.progress;
   assert.ok(liftAt(ridge, saved) > 20); assert.ok(saved.blueprints.includes('battery'));
 });
-test('three distant sigils and both temple altars are needed to unseal the Skyheart', () => {
+test('three sigils, both temple altars and the Heartwarden are needed to unseal the Skyheart', () => {
   const p = newProgress(); assert.equal(sanctuaryOpen(p), false);
   p.collected.push('sigil-echo', 'sigil-copper', 'sigil-bell'); assert.equal(sanctuaryOpen(p), false);
-  interactSite(p, 'altar-west'); interactSite(p, 'altar-east'); assert.equal(sanctuaryOpen(p), true);
+  interactSite(p, 'altar-west'); interactSite(p, 'altar-east'); assert.equal(sanctuaryOpen(p), false); p.defeated.push('boss-heart'); assert.equal(sanctuaryOpen(p), true);
 });
 test('old saves migrate without deleting equipment, and new quest state round-trips', () => {
   const original = newProgress(); original.fan = true; original.upgrades.glide = 2; original.collected.push('electric-fan');
@@ -74,7 +76,7 @@ test('the final observatory story needs both the three fragments and the living 
   const p = newProgress(), q = QUESTS.find(q => q.id === 'starfall')!;
   assert.equal(questKnown(p, q), false); interactSite(p, 'astronomer'); acceptQuest(p, q.id);
   p.collected.push('lens-west', 'lens-east', 'lens-summit'); assert.equal(questReady(p, q), false);
-  p.relic = true; assert.ok(finishQuest(p, q.id, site('astronomer'))); assert.ok(p.completed.includes('starfall'));
+  p.relic = true; assert.equal(finishQuest(p, q.id, site('astronomer')), null); p.defeated.push('boss-tempest'); assert.ok(finishQuest(p, q.id, site('astronomer'))); assert.ok(p.completed.includes('starfall'));
 });
 
 test('acceptance follows a story and its clue advances past items found in any order', () => {

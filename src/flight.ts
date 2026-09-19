@@ -1,6 +1,6 @@
 export interface Point3 { x: number; y: number; z: number }
 export interface FlightState extends Point3 { heading: number; pitch: number; roll: number; speed: number; stalled: boolean }
-export interface FlightInput { left: boolean; right: boolean; up: boolean; down: boolean; boost: boolean }
+export interface FlightInput { left: boolean; right: boolean; up: boolean; down: boolean; boost: boolean; brake?: boolean }
 export interface FlightTuning { drag: number; sink: number; turn: number; pitchRate: number; maxSpeed: number; thrust: number }
 export const BASE_TUNING: FlightTuning = { drag: .00135, sink: 1.65, turn: .82, pitchRate: 1.16, maxSpeed: 76, thrust: 0 };
 export const START: Point3 = { x: 0, y: 86, z: 450 };
@@ -31,7 +31,7 @@ export function stepFlight(state: FlightState, input: FlightInput, dt: number, l
   const sink = tuning.sink * (1 + Math.abs(state.roll) * .28) + (state.stalled ? 7 : 0);
   const gravity = -9.8 * Math.sin(state.pitch);
   const glideEnergy = 9.8 * tuning.sink / Math.max(state.speed, 10);
-  const drag = tuning.drag * state.speed * state.speed + Math.abs(turn) * .12;
+  const drag = (input.brake ? 8 : 0) + tuning.drag * state.speed * state.speed + Math.abs(turn) * .12;
   state.speed = Math.max(4, Math.min(tuning.maxSpeed, state.speed + (gravity + glideEnergy - drag + (input.boost ? tuning.thrust : 0)) * dt));
   const forward = forwardVector(state);
   state.x += forward.x * state.speed * dt;

@@ -1,12 +1,18 @@
+import { meters } from './units.ts';
+import { dockedHarbor, cargoUsed, cargoCapacity, GOODS, CONTRACTS, type Good } from './commerce.ts';
+import { HARBORS } from './settlements.ts';
 import { BASE_TUNING, initialFlight, type FlightState, type FlightTuning, type Point3 } from './flight.ts';
 
-export type Upgrade = 'speed' | 'turn' | 'glide' | 'battery' | 'motor';
+export type Upgrade = 'speed' | 'turn' | 'glide' | 'battery' | 'motor' | 'bands' | 'hull' | 'cargo';
 export const UPGRADE_INFO: Record<Upgrade, { name: string; description: string; effect: string }> = {
-  speed: { name: 'Streamlined folds', description: 'Cleaner folds cut drag and preserve dive energy.', effect: '−14% drag · +8 m/s limit / level' },
+  speed: { name: 'Streamlined folds', description: 'Cleaner folds cut drag and preserve dive energy.', effect: `−14% drag · +${meters(8)} m/s limit / level` },
   turn: { name: 'Responsive rudder', description: 'Bank tighter and pull through loops faster.', effect: '+18% turning · +8% pitch / level' },
   glide: { name: 'Long-span wings', description: 'Stay aloft longer between rising air currents.', effect: '−18% sink / level' },
   battery: { name: 'High-density cell', description: 'Store more charge for the electric fan.', effect: '+60 charge / level' },
-  motor: { name: 'Fan impeller', description: 'Get more thrust from each powered burst.', effect: '+2.5 m/s² thrust / level' },
+  bands: { name: 'Tension launcher', description: 'Reinforced launch arms bite through the tougher guardians.', effect: '+1 band damage / level' },
+  hull: { name: 'Laminated paper', description: 'A tougher skin withstands guardian volleys.', effect: '−18% incoming damage / level' },
+  cargo: { name: 'Cargo cradle', description: 'Carry more trade goods and larger delivery contracts.', effect: '+3 cargo slots / level' },
+  motor: { name: 'Fan impeller', description: 'Get more thrust from each powered burst.', effect: `+${meters(2.5)} m/s² thrust / level` },
 };
 export interface Reward { parts?: number; cores?: number; ammo?: number; charge?: number; fan?: boolean; upgrade?: Upgrade; relic?: boolean }
 export interface Drop extends Point3 { id: string; reward: Reward }
@@ -15,15 +21,17 @@ export interface Progress {
   upgrades: Record<Upgrade, number>; collected: string[]; defeated: string[]; discovered: string[];
   drops: Drop[]; checkpoint: string; relic: boolean; flight: FlightState; distance: number; seconds: number;
   accepted: string[]; completed: string[]; blueprints: Upgrade[]; trackedQuest: string | null;
+  charted: string[]; heard: string[]; dockedHub: string | null;
+  cargo: Record<Good, number>; marketStock: Record<string, number>; freight: string | null; deliveries: string[];
 }
 export interface SaveFile { version: 1; savedAt: string; progress: Progress }
 export const SAVE_KEY = 'glider-adventure-v1';
 export function newProgress(): Progress {
-  return { parts: 0, cores: 0, ammo: 16, fan: false, charge: 0, health: 100, upgrades: { speed: 0, turn: 0, glide: 0, battery: 0, motor: 0 }, collected: [], defeated: [], discovered: ['hearthside'], drops: [], checkpoint: 'home', relic: false, flight: initialFlight(), distance: 0, seconds: 0, accepted: [], completed: [], blueprints: [], trackedQuest: null };
+  return { parts: 0, cores: 0, ammo: 16, fan: false, charge: 0, health: 100, upgrades: { speed: 0, turn: 0, glide: 0, battery: 0, motor: 0, bands: 0, hull: 0, cargo: 0 }, collected: [], defeated: [], discovered: ['hearthside'], drops: [], checkpoint: 'home', relic: false, flight: initialFlight(), distance: 0, seconds: 0, accepted: [], completed: [], blueprints: [], trackedQuest: null, charted: [], heard: ['mill'], dockedHub: null, cargo: { tea: 0, paper: 0, copper: 0, glass: 0, cells: 0 }, marketStock: {}, freight: null, deliveries: [] };
 }
 export const capacity = (p: Progress) => 100 + p.upgrades.battery * 60;
 export function flightTuning(p: Progress): FlightTuning {
-  return { ...BASE_TUNING, drag: BASE_TUNING.drag * Math.pow(.86, p.upgrades.speed), sink: BASE_TUNING.sink * Math.pow(.82, p.upgrades.glide), turn: BASE_TUNING.turn * (1 + p.upgrades.turn * .18), pitchRate: BASE_TUNING.pitchRate * (1 + p.upgrades.turn * .08), maxSpeed: BASE_TUNING.maxSpeed + p.upgrades.speed * 8, thrust: p.fan && p.charge > 0 ? 7.5 + p.upgrades.motor * 2.5 : 0 };
+  return { ...BASE_TUNING, drag: (1 + cargoUsed(p) * .025) * BASE_TUNING.drag * Math.pow(.86, p.upgrades.speed), sink: (1 + cargoUsed(p) * .045) * BASE_TUNING.sink * Math.pow(.82, p.upgrades.glide), turn: BASE_TUNING.turn * (1 + p.upgrades.turn * .18), pitchRate: BASE_TUNING.pitchRate * (1 + p.upgrades.turn * .08), maxSpeed: BASE_TUNING.maxSpeed + p.upgrades.speed * 8, thrust: p.fan && p.charge > 0 ? 7.5 + p.upgrades.motor * 2.5 : 0 };
 }
 export function spendCharge(p: Progress, seconds: number): number {
   if (!p.fan || p.charge <= 0 || seconds <= 0) return 0;
@@ -32,15 +40,16 @@ export function spendCharge(p: Progress, seconds: number): number {
 export function recharge(p: Progress, dt: number) { if (p.fan) p.charge = Math.min(capacity(p), p.charge + dt * 24); p.health = Math.min(100, p.health + dt * 18); p.ammo = Math.max(p.ammo, 12); }
 export function upgradeCost(p: Progress, kind: Upgrade) { const level = p.upgrades[kind]; return { parts: [20, 50, 90][level] ?? 90, cores: level === 2 ? 2 : level === 1 ? 1 : 0 }; }
 export function upgradeProblem(p: Progress, kind: Upgrade): string | null {
+  if (!dockedHarbor(p)?.workshop) return 'Land at a workshop to install equipment';
   if (p.upgrades[kind] >= 3) return 'Fully upgraded';
   if ((kind === 'motor' || kind === 'battery') && !p.fan) return 'Discover the electric fan first';
-  if (p.upgrades[kind] >= 1 && !p.blueprints.includes(kind)) return 'Find the advanced schematic through valley quests';
+  if (p.upgrades[kind] >= 1 && !['bands', 'hull', 'cargo'].includes(kind) && !p.blueprints.includes(kind)) return 'Find the advanced schematic through valley quests';
   const cost = upgradeCost(p, kind);
   if (p.parts < cost.parts || p.cores < cost.cores) return 'Find more scrap or wind cores';
   return null;
 }
 export function buyUpgrade(p: Progress, kind: Upgrade): boolean {
-  if (upgradeProblem(p, kind)) return false;
+  if (!Object.hasOwn(UPGRADE_INFO, kind) || upgradeProblem(p, kind)) return false;
   const cost = upgradeCost(p, kind); p.parts -= cost.parts; p.cores -= cost.cores; p.upgrades[kind]++; return true;
 }
 export function applyReward(p: Progress, reward: Reward): string {
@@ -75,6 +84,7 @@ export function parseSave(text: string): SaveFile | null {
     if (save.version !== 1 || typeof save.savedAt !== 'string' || !Number.isFinite(Date.parse(save.savedAt)) || !p) return null;
     if (!['parts', 'cores', 'ammo'].every(k => Number.isInteger(p[k]) && finite(p[k], 0, 100000))) return null;
     if (!finite(p.charge, 0, 280) || !finite(p.health, 0, 100) || typeof p.fan !== 'boolean' || typeof p.relic !== 'boolean') return null;
+    if (p.upgrades) for (const k of ['bands', 'hull', 'cargo']) p.upgrades[k] ??= 0;
     if (!p.upgrades || !Object.keys(UPGRADE_INFO).every(k => Number.isInteger(p.upgrades[k]) && finite(p.upgrades[k], 0, 3))) return null;
     if (!['collected', 'defeated', 'discovered'].every(k => strings(p[k])) || typeof p.checkpoint !== 'string' || p.checkpoint.length > 50) return null;
     if (!Array.isArray(p.drops) || p.drops.length > 100 || !p.drops.every((d: any) => point(d) && typeof d.id === 'string' && d.id.length < 100 && rewardValid(d.reward))) return null;
@@ -83,12 +93,19 @@ export function parseSave(text: string): SaveFile | null {
     if (['accepted', 'completed', 'blueprints'].some(k => p[k] !== undefined && !strings(p[k]))) return null;
     if (p.blueprints?.some((k: string) => !Object.hasOwn(UPGRADE_INFO, k))) return null;
     if (p.trackedQuest !== undefined && p.trackedQuest !== null && (typeof p.trackedQuest !== 'string' || p.trackedQuest.length > 99)) return null;
+    if (p.charted !== undefined && (!Array.isArray(p.charted) || p.charted.length > 5000 || !p.charted.every((s: unknown) => typeof s === 'string' && /^-?\d{1,3},-?\d{1,3}$/.test(s)))) return null;
+    if (['heard', 'deliveries'].some(k => p[k] !== undefined && !strings(p[k]))) return null;
+    if (p.dockedHub != null && !HARBORS.some(h => h.id === p.dockedHub)) return null;
+    if (p.freight != null && !CONTRACTS.some(c => c.id === p.freight)) return null;
+    if (p.cargo !== undefined && (!p.cargo || !Object.keys(GOODS).every(k => Number.isInteger(p.cargo[k]) && finite(p.cargo[k], 0, 13)))) return null;
+    if (p.marketStock !== undefined && (!p.marketStock || Array.isArray(p.marketStock) || Object.entries(p.marketStock).some(([key, value]) => !HARBORS.some(h => Object.keys(GOODS).some(g => key === h.id + ':' + g)) || !Number.isInteger(value) || !finite(value, 0, 10000)))) return null;
     // Copy only known data; arbitrary imported properties never enter game state.
     const clean = newProgress();
     for (const k of Object.keys(clean) as (keyof Progress)[]) if (p[k] !== undefined) (clean as any)[k] = p[k];
     clean.upgrades = Object.fromEntries(Object.keys(UPGRADE_INFO).map(k => [k, p.upgrades[k]])) as Record<Upgrade, number>;
     clean.flight = Object.fromEntries(['x', 'y', 'z', 'heading', 'pitch', 'roll', 'speed', 'stalled'].map(k => [k, p.flight[k]])) as unknown as FlightState;
-    if (clean.charge > capacity(clean)) return null;
+    clean.cargo = Object.fromEntries(Object.keys(GOODS).map(k => [k, clean.cargo[k as Good]])) as Record<Good, number>;
+    if (clean.charge > capacity(clean) || cargoUsed(clean) > cargoCapacity(clean) || (clean.freight && clean.deliveries.includes(clean.freight))) return null;
     return { version: 1, savedAt: save.savedAt, progress: clean };
   } catch { return null; }
 }

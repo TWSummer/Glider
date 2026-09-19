@@ -40,7 +40,7 @@ test('vents have a ceiling and radius rather than infinite global lift', () => {
 test('rubber bands kill guardians and leave collectible persistent loot', () => {
   const p = newProgress(); adventure.sync(p); const enemy = adventure.enemies[0], s = initialFlight(); Object.assign(s, { x: enemy.home.x, y: enemy.home.y, z: enemy.home.z + 35 });
   adventure.update(1 / 60, 0, s, p, true, () => {}, () => {}); assert.equal(adventure.fire(s, p), true); assert.equal(p.ammo, 15);
-  for (let i = 0; i < 60 && enemy.mesh.visible; i++) adventure.update(1 / 60, i / 60, s, p, true, () => {}, () => {});
+  for (let i = 0; i < 150 && enemy.mesh.visible; i++) { adventure.fire(s,p); adventure.update(1 / 60, i / 60, s, p, true, () => {}, () => {}); }
   assert.equal(enemy.mesh.visible, false); assert.ok(p.defeated.includes(enemy.id)); assert.equal(p.drops.length, 1);
   const drop = p.drops[0], parts = p.parts; Object.assign(s, { x: drop.x, y: drop.y, z: drop.z }); adventure.update(1 / 60, 1, s, p, true, () => {}, () => {}); assert.ok(p.parts > parts); assert.equal(p.drops.length, 0);
   adventure.sync(p); assert.equal(enemy.mesh.visible, false); assert.equal(adventure.pickups.get(drop.id)?.mesh.visible, false);

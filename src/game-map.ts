@@ -1,3 +1,6 @@
+import { meters } from './units';
+import { ROADS, HARBORS } from './settlements';
+import { knownRegions, CHART_CELL } from './exploration';
 import { BUILDINGS } from './architecture-data';
 import { REGIONS, regionAt } from './atlas';
 import { groundHeight } from './world';
@@ -77,14 +80,7 @@ function mapDecor(): string {
   for (const [x, z, size] of [[-250, -3370, 24], [-440, -3510, 19], [-540, -3000, 16], [100, -3320, 18], [-120, -2800, 22], [-160, -745, 14], [-240, -395, 12], [235, -675, 13], [-1080, -1510, 17], [-530, -520, 13]]) {
     const at = project({ x, z }); ridges += `<use href="#atlas-mountain" transform="translate(${round(at.x)} ${round(at.y)}) scale(${size / 20})"/>`;
   }
-  const paths = [
-    { points: [[0, 356], [130, 445], [350, 535], [600, 505]], kind: 'road' },
-    { points: [[-175, 360], [-230, 515], [-390, 535]], kind: 'road' },
-    { points: [[-405, -270], [-624, -870], [-690, -990], [-920, -1060]], kind: 'rail' },
-    { points: [[646, -1100], [970, -1150], [1015, -2150]], kind: 'road' },
-    { points: [[-300, -2260], [90, -2260], [450, -2250], [580, -1990], [695, -1790]], kind: 'canal' },
-    { points: [[-80, -2655], [-80, -2945], [-250, -3020]], kind: 'road' },
-  ].map(route => { const d = route.points.map(([x, z], i) => { const p = project({ x, z }); return `${i ? 'L' : 'M'}${round(p.x)},${round(p.y)}`; }).join(''); return `<path d="${d}" fill="none" stroke="${route.kind === 'canal' ? '#638b86' : '#6d7055'}" stroke-width="${route.kind === 'canal' ? 3 : 2}" ${route.kind === 'rail' ? 'stroke-dasharray="2 3"' : ''} opacity=".7"/><path d="${d}" fill="none" stroke="#eee1b9" stroke-width=".8" opacity=".7"/>`; }).join('');
+  const paths = ROADS.map(route => { const d = route.points.map(([x,z],i) => { const p = project({x,z}); return `${i ? 'L' : 'M'}${round(p.x)} ${round(p.y)}`; }).join(''); return `<path d="${d}" fill="none" stroke="#72775d" stroke-width="2.2"/><path d="${d}" fill="none" stroke="#e8d9b1" stroke-width="1" ${route.kind === 'rail' ? 'stroke-dasharray="2 2"' : ''}/>`; }).join('');
   let town = '';
   for (const { x, z } of BUILDINGS.filter(b => b.region === 'city')) { const p = project({ x, z }); town += `<g transform="translate(${p.x} ${p.y})"><path d="M-5-6H5V7H-5Z" fill="#eee0b9" stroke="#737a5d" stroke-width=".9"/><path d="M-6-6 0-10 6-6M0-10V3M-5 7 0 3 5 7" fill="none" stroke="#737a5d" stroke-width=".8"/></g>`; }
   return `<g opacity=".5">${trees}</g>${paths}<g opacity=".66">${ridges}${town}</g>`;
@@ -103,7 +99,7 @@ function staticMap() {
   <g class="map-cartouche" fill="#3c5c4d"><path d="M52 58h180M52 65h60" stroke="#57715b" stroke-width="1"/><text x="52" y="91" font-size="10" letter-spacing="3.4">THE WINDWARD COUNTRY</text><text x="49" y="133" font-family="Georgia,serif" font-size="40">Willowmere</text><text x="52" y="158" font-size="11" letter-spacing="5">A VALLEY OF STORIES</text><path d="M52 177h180M126 173l4 4-4 4-4-4Z" fill="none" stroke="#57715b"/><text x="52" y="198" font-family="Georgia,serif" font-style="italic" font-size="13">An explorer’s field atlas</text></g>
   <g transform="translate(143 357)" stroke="#506d5c" fill="none"><circle r="38" stroke-opacity=".45"/><circle r="30" stroke-opacity=".4"/><path d="M0-57 8-8 0 5-8-8ZM0 57 8 8 0-5-8 8ZM-57 0-8-8 5 0-8 8ZM57 0 8-8-5 0 8 8Z" fill="#c3cfb4" stroke-width=".8"/><path d="M0-57 0 5-8-8ZM57 0-5 0 8-8Z" fill="#567460"/><circle r="4" fill="#dcd9b8"/><g stroke="none" fill="#405e4e" text-anchor="middle" font-size="11"><text y="-69">N</text><text y="81">S</text><text x="-73" y="4">W</text><text x="73" y="4">E</text></g></g>
   <g class="map-water-labels" fill="#416c66" font-family="Georgia,serif" font-style="italic" text-anchor="middle" opacity=".7"><text x="745" y="755" font-size="19" letter-spacing="3" transform="rotate(-12 745 755)">Hearthside Lake</text><text x="195" y="603" font-size="13" letter-spacing="2" transform="rotate(-72 195 603)">The western shore</text></g>
-  <g transform="translate(58 739)" fill="#456153"><text y="-12" font-size="9" letter-spacing="2">DISTANCE · METRES</text><path d="M0 0H159M0-4V4M79.5-4V4M159-4V4" stroke="#456153" stroke-width="1.3"/><text y="20" font-size="10">0</text><text x="79.5" y="20" font-size="10" text-anchor="middle">500</text><text x="159" y="20" font-size="10" text-anchor="middle">1,000</text></g>`;
+  <g transform="translate(58 739)" fill="#456153"><text y="-12" font-size="9" letter-spacing="2">DISTANCE · METRES</text><path d="M0 0H159M0-4V4M79.5-4V4M159-4V4" stroke="#456153" stroke-width="1.3"/><text y="20" font-size="10">0</text><text x="79.5" y="20" font-size="10" text-anchor="middle">${meters(500)}</text><text x="159" y="20" font-size="10" text-anchor="middle">${meters(1000)}</text></g>`;
   return scenery;
 }
 
@@ -114,26 +110,31 @@ function marker(r: typeof REGIONS[number], p: Progress) {
   const shortName: Record<string, string> = { hearthside: 'Hearthside', mill: 'Mill', cavern: 'Caverns', mine: 'Mine', city: 'City', temple: 'Temple', aqueduct: 'Aqueduct', observatory: 'Starfall' };
   return `<g class="atlas-location ${found ? 'is-discovered' : 'is-rumor'}" data-atlas-region="${r.id}" role="button" tabindex="0" aria-label="Select ${r.name}${found ? ', discovered' : ', unexplored'}" aria-pressed="false">
     <path class="map-leader" d="M${pos.x} ${pos.y}L${end} ${y + 5}"/><g transform="translate(${pos.x} ${pos.y})"><circle class="map-icon-halo" r="24"/><circle class="map-icon-disc" r="19"/><g class="map-symbol" fill="none" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${drawings[r.id]}</g></g>
-    <text class="map-location-name" x="${x}" y="${y}" text-anchor="${anchor}">${r.name === 'The Sunken Aqueduct' ? 'Sunken Aqueduct' : r.name}</text><text class="map-location-state" x="${x}" y="${y + 15}" text-anchor="${anchor}">${found ? 'CHARTED' : 'UNCHARTED'}</text>
+    <text class="map-location-name" x="${x}" y="${y}" text-anchor="${anchor}">${r.name === 'The Sunken Aqueduct' ? 'Sunken Aqueduct' : r.name}</text><text class="map-location-state" x="${x}" y="${y + 15}" text-anchor="${anchor}">${found ? 'DISCOVERED' : 'HEARD ABOUT'}</text>
     <text class="map-location-compact" x="${pos.x + (compactLeft ? -30 : 30)}" y="${pos.y + 5}" text-anchor="${compactLeft ? 'end' : 'start'}" aria-hidden="true">${shortName[r.id]}</text>
   </g>`;
 }
 
 export function renderAtlas(p: Progress, position: Point3, pinned: string): string {
   const at = project(position), heading = 'heading' in position && typeof position.heading === 'number' ? position.heading * 180 / Math.PI : p.flight.heading * 180 / Math.PI;
-  const selected = pinned.startsWith('place:') ? pinned.slice(6) : regionAt(position).id;
+  const known = knownRegions(p), selected = pinned.startsWith('place:') && known.has(pinned.slice(6)) ? pinned.slice(6) : known.has(regionAt(position).id) ? regionAt(position).id : 'hearthside';
+  const visibleRegions = REGIONS.filter(r => known.has(r.id));
+  const revealed = p.charted.map(key => { const [x,z] = key.split(',').map(Number), at = project({x:x*CHART_CELL,z:z*CHART_CELL}); return `<circle cx="${at.x+CHART_CELL*SCALE/2}" cy="${at.y+CHART_CELL*SCALE/2}" r="${CHART_CELL*SCALE*.85}" fill="white"/>`; }).join('');
   const discovered = REGIONS.filter(r => p.discovered.includes(r.id)).length;
-  const camps = STATIONS.filter(s => p.discovered.includes('station-' + s.id)).map(s => { const q = project(s); return `<g class="map-camp" transform="translate(${q.x} ${q.y})"><title>${s.name} recharge camp</title><path d="m0-6 6 6-6 6-6-6Z" fill="#4e7661" stroke="#eff0ca" stroke-width="1.5"/><path d="m1-4-3 4h3l-2 4 4-5H0Z" fill="#f0e7b7"/></g>`; }).join('');
+  const camps = [...STATIONS.filter(s => p.discovered.includes('station-' + s.id)), ...HARBORS.filter(h => p.discovered.includes('harbor:' + h.id))].map(s => {
+    const q = project(s), landing = 'workshop' in s;
+    return `<g class="map-camp" transform="translate(${q.x} ${q.y})"><title>${s.name} · ${landing ? 'safe landing and services' : 'emergency relaunch camp'}</title>${landing ? '<rect x="-7" y="-7" width="14" height="14" rx="2" fill="#365e54" stroke="#eff0ca" stroke-width="1.5"/><text y="3.5" text-anchor="middle" font-size="10" font-weight="bold" fill="#f0e7b7">H</text>' : '<path d="m0-6 6 6-6 6-6-6Z" fill="#4e7661" stroke="#eff0ca" stroke-width="1.5"/><path d="m-3 2 3-5 3 5Z" fill="#f0e7b7"/>'}</g>`;
+  }).join('');
   return `<section class="atlas-workspace" aria-label="Interactive world atlas" data-selected="${selected}">
     <div class="atlas-map-column"><div class="atlas-map-viewport"><svg class="game-atlas" viewBox="0 0 ${W} ${H}" aria-label="Map of Willowmere. Select a landmark to inspect it. Drag to pan and use the zoom controls to explore." role="group">
-      ${staticMap()}<g class="map-camps">${camps}</g><g class="map-locations">${REGIONS.map(r => marker(r, p)).join('')}</g>
+      <defs><filter id="chart-feather"><feGaussianBlur stdDeviation="1.1"/></filter><mask id="charted-land"><rect width="1000" height="820" fill="black"/><g filter="url(#chart-feather)">${revealed}</g></mask><pattern id="unknown-hatch" width="18" height="18" patternUnits="userSpaceOnUse"><path d="M0 18 18 0" stroke="#adc4ae" stroke-opacity=".035"/></pattern></defs><rect width="1000" height="820" fill="#243f3d"/><rect width="1000" height="820" fill="url(#unknown-hatch)"/><g mask="url(#charted-land)">${staticMap()}</g><g fill="#b8c9b4"><text x="48" y="85" font-family="Georgia,serif" font-size="30">Willowmere</text><text x="50" y="108" font-size="9" letter-spacing="3">YOUR EXPLORER’S CHART</text><text x="50" y="132" font-size="10">Fly closer to reveal the country.</text></g><g class="map-camps">${camps}</g><g class="map-locations">${visibleRegions.map(r => marker(r, p)).join('')}</g>
       <g class="map-player" transform="translate(${at.x} ${at.y})"><title>Your glider</title><circle class="map-player-pulse" r="16"/><circle r="11" fill="#294e48" stroke="#fff4c7" stroke-width="2"/><path d="M0-8 6 7 0 3-6 7Z" transform="rotate(${heading})" fill="#fff1c0"/></g>
       <rect x="12" y="12" width="976" height="796" rx="3" fill="none" stroke="#e9dfbe" stroke-width="1.2" opacity=".5" pointer-events="none"/>
     </svg><span class="atlas-mobile-charted">${discovered} / 8 regions charted</span><span class="atlas-mobile-north">N ↑</span><div class="atlas-map-tools" role="group" aria-label="Map view controls"><button data-map-action="in" aria-label="Zoom map in" title="Zoom in">+</button><button data-map-action="out" aria-label="Zoom map out" title="Zoom out">−</button><span></span><button data-map-action="player" aria-label="Center map on your glider" title="Find my glider">⌖</button><button data-map-action="reset" aria-label="Fit whole map" title="Whole valley">⛶</button></div><span class="atlas-pan-hint">DRAG TO EXPLORE · SCROLL TO ZOOM</span></div>
-    <div class="atlas-legend"><span><i class="legend-player"></i>Your glider</span><span><i class="legend-charted"></i>Charted</span><span><i class="legend-uncharted"></i>Uncharted</span><span><i class="legend-camp"></i>Recharge camp</span><b id="atlas-zoom">100%</b></div></div>
+    <div class="atlas-legend"><span><i class="legend-player"></i>Your glider</span><span><i class="legend-charted"></i>Charted</span><span><i class="legend-uncharted"></i>Rumored destination</span><span><i class="legend-camp"></i>Landing / camp</span><b id="atlas-zoom">100%</b></div></div>
     <aside class="atlas-sidebar"><div class="atlas-progress"><span>YOUR FIELD ATLAS</span><strong>${discovered}<small> / 8</small></strong><p>regions charted</p><div><i style="width:${discovered / 8 * 100}%"></i></div></div>
-    <div class="atlas-selection" aria-live="polite">${REGIONS.map(r => { const found = p.discovered.includes(r.id), jobs = QUESTS.filter(q => q.region === r.id && p.accepted.includes(q.id)), done = jobs.filter(q => p.completed.includes(q.id)).length; return `<section data-region-panel="${r.id}" ${selected === r.id ? '' : 'hidden'}><span class="atlas-region-status">${found ? 'DISCOVERED' : 'A RUMOR ON THE WIND'}</span><div class="atlas-detail-icon">${mapIcon(r.id)}</div><h3>${r.name}</h3><span class="atlas-difficulty">${['Gentle air', 'Crosswinds', 'High winds', 'Storm ridge'][r.tier - 1]}<i>${'◆'.repeat(r.tier)}${'◇'.repeat(4 - r.tier)}</i></span><p>${r.subtitle}.</p><p class="atlas-advice">${r.advice}</p>${jobs.length ? `<span class="atlas-quest-count">${done} of ${jobs.length} known stories completed</span>` : ''}<button class="atlas-pin-button" data-track="place:${r.id}">${pinned === 'place:' + r.id ? 'Pinned on your compass' : 'Pin this region'} <span>↗</span></button></section>`; }).join('')}</div>
-    <button class="atlas-clear-pin" data-track="none">Clear compass pin</button><p class="atlas-free-explore">A pin marks a place.<br>The way there is yours.</p></aside>
+    <div class="atlas-selection" aria-live="polite">${visibleRegions.map(r => { const found = p.discovered.includes(r.id), jobs = QUESTS.filter(q => q.region === r.id && p.accepted.includes(q.id)), done = jobs.filter(q => p.completed.includes(q.id)).length; return `<section data-region-panel="${r.id}" ${selected === r.id ? '' : 'hidden'}><span class="atlas-region-status">${found ? 'DISCOVERED' : 'A RUMOR ON THE WIND'}</span><div class="atlas-detail-icon">${mapIcon(r.id)}</div><h3>${r.name}</h3><span class="atlas-difficulty">${['Gentle air', 'Crosswinds', 'High winds', 'Storm ridge'][r.tier - 1]}<i>${'◆'.repeat(r.tier)}${'◇'.repeat(4 - r.tier)}</i></span><p>${r.subtitle}.</p><p class="atlas-advice">${r.advice}</p>${jobs.length ? `<span class="atlas-quest-count">${done} of ${jobs.length} known stories completed</span>` : ''}<button class="atlas-pin-button" data-track="place:${r.id}">${pinned === 'place:' + r.id ? 'Pinned on your compass' : 'Pin this region'} <span>↗</span></button></section>`; }).join('')}</div>
+    <button class="atlas-clear-pin" data-track="none">Clear compass pin</button><p class="atlas-free-explore">Rumors mark destinations.<br>Only exploration reveals the land.</p></aside>
   </section>`;
 }
 
@@ -167,6 +168,7 @@ export function bindAtlas(root: HTMLElement, position: Point3) {
   svg.addEventListener('keydown', e => { if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(e.key)) { e.preventDefault(); e.stopPropagation(); const { w, h } = bounds(); cx += (e.key === 'ArrowRight' ? 1 : e.key === 'ArrowLeft' ? -1 : 0) * w * .12; cy += (e.key === 'ArrowDown' ? 1 : e.key === 'ArrowUp' ? -1 : 0) * h * .12; update(); } });
   select(workspace.dataset.selected!);
   if (mobile()) zoom = 1.65;
+  if (workspace.querySelectorAll('.is-discovered').length < 3) { const here=project(position); cx=here.x;cy=here.y;zoom=2.6; }
   update();
   const resize = new ResizeObserver(update); resize.observe(viewport);
   return () => resize.disconnect();

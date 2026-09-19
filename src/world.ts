@@ -1,3 +1,5 @@
+import { roadDistance, HARBORS } from './settlements.ts';
+import { gradeRoadGround } from './road-terrain.ts';
 import * as THREE from 'three';
 import { landHeight } from './atlas.ts';
 import { gradeTerrain, nearBuilding, nearTunnel } from './architecture-data.ts';
@@ -27,7 +29,8 @@ function islandHeight(island: Island, x: number, z: number) {
   const slope = Math.max(0, 1 - Math.pow(r, 5));
   return -2 + island.h * top * Math.pow(slope, 0.65);
 }
-export function groundHeight(x: number, z: number, excavated = true) { return gradeTerrain(x, z, islands.reduce((height, island) => Math.max(height, islandHeight(island, x, z)), landHeight(x, z)), excavated); }
+function naturalGround(x:number,z:number,excavated=true) {return gradeTerrain(x,z,islands.reduce((height,island)=>Math.max(height,islandHeight(island,x,z)),landHeight(x,z)),excavated);}
+export function groundHeight(x: number, z: number, excavated = true) { return gradeRoadGround(x,z,excavated,naturalGround); }
 const mat = (color: string, extra = {}) => new THREE.MeshStandardMaterial({ color, roughness: 0.95, flatShading: true, ...extra });
 export const thermals = [{ x: -63, z: 68, radius: 24 }, { x: 45, z: -240, radius: 25 }, { x: 292, z: -270, radius: 23 }];
 
@@ -123,17 +126,17 @@ export class World {
     // A shallow, irregular turquoise shelf hugs each shoreline.
     const shelf = new THREE.Mesh(new THREE.CircleGeometry(1, 80), new THREE.MeshBasicMaterial({ color: '#81b7a0', transparent: true, opacity: .35, depthWrite: false }));
     shelf.rotation.x = -Math.PI / 2; shelf.position.set(island.x, .01, island.z); shelf.scale.set(island.rx * 1.06, island.rz * 1.06, 1); this.scene.add(shelf);
-    const count = Math.floor(island.rx * island.rz / 95);
+    const count = Math.floor(island.rx * island.rz / 1500);
     const leaves = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 6), mat('#ffffff'), count * 3);
     const trunks = new THREE.InstancedMesh(new THREE.CylinderGeometry(.15, .24, 1, 5), mat('#66513b'), count);
     const dummy = new THREE.Object3D(); const greens = ['#315647', '#41654c', '#577853', '#658458', '#3e6553', '#83915b'];
     for (let i = 0; i < count; i++) {
       const angle = rng() * TAU, r = Math.sqrt(rng()) * .77;
       const x = island.x + Math.cos(angle) * r * island.rx, z = island.z + Math.sin(angle) * r * island.rz;
-      const y = groundHeight(x, z); const h = 8 + rng() * 14, width = 2.1 + rng() * 2.6;
-      if (nearBuilding(x, z, 50) || nearTunnel(x, z)) { dummy.scale.setScalar(0); dummy.updateMatrix(); trunks.setMatrixAt(i, dummy.matrix); for (let layer = 0; layer < 3; layer++) leaves.setMatrixAt(i * 3 + layer, dummy.matrix); continue; }
+      const y = groundHeight(x, z); const h = 65 + rng() * 60, width = 12 + rng() * 13;
+      if (nearBuilding(x, z, 95) || nearTunnel(x, z, 40) || roadDistance(x, z) < 48 || HARBORS.some(h => Math.hypot(h.x - x, h.z - z) < 150)) { dummy.scale.setScalar(0); dummy.updateMatrix(); trunks.setMatrixAt(i, dummy.matrix); for (let layer = 0; layer < 3; layer++) leaves.setMatrixAt(i * 3 + layer, dummy.matrix); continue; }
       this.obstacles.push({ x, z, y, height: h, radius: width * .65 });
-      dummy.position.set(x, y + h * .2, z); dummy.scale.set(1, h * .4, 1); dummy.rotation.set(0, rng() * TAU, 0); dummy.updateMatrix(); trunks.setMatrixAt(i, dummy.matrix);
+      dummy.position.set(x, y + h * .2, z); dummy.scale.set(12, h * .4, 12); dummy.rotation.set(0, rng() * TAU, 0); dummy.updateMatrix(); trunks.setMatrixAt(i, dummy.matrix);
       for (let layer = 0; layer < 3; layer++) {
         dummy.position.set(x, y + h * (.35 + layer * .23), z); dummy.scale.set(width * (1 - layer * .2), h * .56, width * (1 - layer * .2)); dummy.updateMatrix(); leaves.setMatrixAt(i * 3 + layer, dummy.matrix); leaves.setColorAt(i * 3 + layer, new THREE.Color(greens[Math.floor(rng() * greens.length)]));
       }
@@ -144,17 +147,20 @@ export class World {
   }
 
   makeMountains() {
-    const rng = random(142);
-    for (let i = 0; i < 38; i++) {
-      const angle = i / 38 * TAU; const distance = 3700 + rng() * 400;
-      const height = 170 + rng() * 290, radius = 140 + rng() * 200;
-      const geo = new THREE.ConeGeometry(radius, height, 7, 3);
-      const pos = geo.getAttribute('position');
-      for (let j = 0; j < pos.count; j++) { const x = pos.getX(j), y = pos.getY(j), z = pos.getZ(j); pos.setXYZ(j, x + Math.sin(y * .015 + i) * 30, y, z); } geo.computeVertexNormals();
-      const mesh = new THREE.Mesh(geo, mat(i % 3 === 0 ? '#708c83' : '#91a399'));
-      mesh.position.set(Math.cos(angle) * distance, height / 2 - 15, Math.sin(angle) * distance - 1200); mesh.rotation.y = rng() * TAU; this.scene.add(mesh);
-      if (height > 350) { const cap = new THREE.Mesh(new THREE.ConeGeometry(radius * .18, height * .2, 7), mat('#e3e3ce')); cap.position.copy(mesh.position); cap.position.y = height * .9 - 15; cap.rotation.copy(mesh.rotation); this.scene.add(cap); }
+    // An unbroken, irregular mountain range gives the valley a shared horizon.
+    const vertices: number[] = [], colors: number[] = [], count = 240, rows = 7;
+    const vertex = (i: number, row: number) => {
+      const a = i / count * TAU, t = row / rows, ridge = Math.pow(Math.sin(t * Math.PI), .8);
+      const peaks = 680 + Math.sin(a * 7 + .5) * 220 + Math.sin(a * 17) * 110 + Math.cos(a * 29) * 65;
+      const h = row === 0 || row === rows ? -8 : ridge * peaks * (1 + Math.sin(a * 13 + row) * .13);
+      return new THREE.Vector3(Math.cos(a) * (2100 + t * 2800), h, -1500 + Math.sin(a) * (2950 + t * 2900));
+    };
+    for(let row=0;row<rows;row++) for(let i=0;i<count;i++) {
+      const a=vertex(i,row),b=vertex(i+1,row),c=vertex(i+1,row+1),d=vertex(i,row+1);
+      for(const v of [a,c,b,a,d,c]) { vertices.push(v.x,v.y,v.z);const color=new THREE.Color(v.y>760 ? '#d0d6c4' : v.y>450 ? '#86958b' : '#648276');color.multiplyScalar(.95+Math.sin(v.x*.006+v.z*.004)*.08);colors.push(color.r,color.g,color.b); }
     }
+    const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));geometry.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();
+    this.scene.add(new THREE.Mesh(geometry,new THREE.MeshStandardMaterial({vertexColors:true,roughness:1,flatShading:true,side:THREE.DoubleSide})));
   }
 
   makeArch(x: number, z: number) {
@@ -230,6 +236,7 @@ export class World {
     const attr = this.thermalPoints.geometry.getAttribute('position');
     thermals.forEach((thermal, k) => { for (let i = 0; i < 100; i++) { const a = i * 2.4 + time * .22, h = (i * .83 + time * 5) % 85, r = 5 + (i % 15) * .7; attr.setXYZ(k * 100 + i, thermal.x + Math.cos(a) * r, h, thermal.z + Math.sin(a) * r); } }); attr.needsUpdate = true;
     const windAttr = this.wind.geometry.getAttribute('position');
+    this.wind.visible = speed > 0;
     for (let i = 0; i < 60; i++) { const a = i * 2.399, r = 12 + i % 15, t = ((i * 3.77 + time * speed) % 85) - 45; const x = position.x + Math.cos(a) * r + Math.sin(heading) * t, y = position.y + Math.sin(a) * r, z = position.z - Math.cos(heading) * t; windAttr.setXYZ(i * 2, x, y, z); windAttr.setXYZ(i * 2 + 1, x + Math.sin(heading) * 2.2, y + .03, z - Math.cos(heading) * 2.2); } windAttr.needsUpdate = true;
   }
 }

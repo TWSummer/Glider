@@ -1,3 +1,5 @@
+import { dock } from './landing.ts';
+import { HARBORS } from './settlements.ts';
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { newProgress, capacity, flightTuning, spendCharge, recharge, buyUpgrade, collect, enemyReward, serializeSave, parseSave, readSave, writeSave, SAVE_KEY } from './progression.ts';
@@ -8,7 +10,7 @@ test('the fan must be discovered, consumes a finite battery and can recharge', (
   recharge(p, 2); assert.equal(p.charge, 48); recharge(p, 100); assert.equal(p.charge, capacity(p));
 });
 test('upgrades charge real currency, change tuning and cap at three', () => {
-  const p = newProgress(); assert.equal(buyUpgrade(p, 'speed'), false); p.parts = 400; p.cores = 10; const base = flightTuning(p);
+  const p = newProgress(); assert.equal(buyUpgrade(p, 'speed'), false); dock(p,p.flight,HARBORS[0]); p.parts = 400; p.cores = 10; const base = flightTuning(p);
   assert.equal(buyUpgrade(p, 'speed'), true); assert.equal(p.parts, 380); assert.ok(flightTuning(p).drag < base.drag);
   assert.equal(buyUpgrade(p, 'turn'), true); assert.ok(flightTuning(p).turn > base.turn); assert.equal(buyUpgrade(p, 'glide'), true); assert.ok(flightTuning(p).sink < base.sink);
   assert.equal(buyUpgrade(p, 'motor'), false); collect(p, 'fan', { fan: true }); assert.equal(buyUpgrade(p, 'battery'), true); assert.equal(capacity(p), 160);

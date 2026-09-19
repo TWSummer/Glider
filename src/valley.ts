@@ -1,3 +1,4 @@
+import { buildSettlements } from './settlement-scenery.ts';
 import * as THREE from 'three';
 import { LAND, SITES, EXTRA_SUPPLIES, landHeight, valleyFloor } from './atlas.ts';
 import type { Point3 } from './flight.ts';
@@ -11,7 +12,7 @@ export const VALLEY_STATIONS = [
   { id: 'grotto', name: 'Blue gallery camp', x: -620, y: 107, z: -670 },
   { id: 'mine', name: 'Coppervein depot', x: -690, y: 105, z: -990 },
   { id: 'pump', name: 'Pump room shelter', x: -760, y: 127, z: -1580 },
-  { id: 'headland', name: 'East headland', x: 646, y: 79, z: -960 },
+  { id: 'headland', name: 'East headland', x: 646, y: 142, z: -960 },
   { id: 'city', name: 'Bellwether quay', x: 920, y: 94, z: -1240 },
   { id: 'canal', name: 'Canal lock', x: 740, y: 89, z: -1730 },
   { id: 'aqueduct', name: 'Waterkeeper’s landing', x: 302, y: 143, z: -2010 },
@@ -23,7 +24,7 @@ export const VALLEY_LIFTS = [
   [150, 320, 18, 90, 30, 11], [-608, -669, 40, 145, 37, 15], [-732, -704, 43, 109, 20, 12],
   [-690, -950, 1, 152, 38, 15], [-690, -990, 61, 118, 34, 9], [-920, -1240, 70, 120, 18, 9],
   [-1000, -1620, 65, 116, 17, 9], [-760, -1595, 94, 148, 16, 10],
-  [515, -825, 1, 155, 40, 15], [646, -960, 40, 145, 43, 13], [920, -1240, 60, 159, 34, 13],
+  [515, -825, 1, 155, 40, 15], [646, -960, 113, 185, 43, 13], [920, -1240, 60, 159, 34, 13],
   [970, -1490, 62, 170, 26, 13], [740, -1730, 60, 154, 28, 13], [845, -1930, 61, 224, 32, 17], [1110, -1775, 62, 190, 30, 13],
   [536, -1935, 0, 180, 39, 14], [305, -2040, 113, 204, 28, 14], [-195, -2240, 112, 206, 30, 14],
   [370, -2240, 112, 206, 30, 14], [80, -2400, 98, 238, 32, 17],
@@ -106,29 +107,21 @@ export function buildValley(scene: THREE.Scene, solids: THREE.Box3[], label: (na
   // Fine sampling at foundations prevents coarse landscape triangles protruding
   // through cellar walls or leaving visible gaps under terraces.
   for (const site of BUILDINGS) terrain(site.x, site.z, site.width + 120, site.depth + 120, Math.ceil((site.width + 120) / 6), Math.ceil((site.depth + 120) / 6));
-  const forest: { x: number; y: number; z: number; h: number }[] = [];
-  for (let i = 0; i < 1100; i++) {
-    const x = Math.sin(i * 73.317) * 1390, z = -510 - ((i * 197.371) % 3240), y = groundHeight(x, z);
-    if (y > 8 && !nearBuilding(x, z, 45) && Math.abs(landHeight(x, z) - valleyFloor(x, z)) < .1 && !inTunnel({ x, y: y + 20, z })) forest.push({ x, y, z, h: 12 + i % 10 });
-  }
-  const tree = new THREE.Object3D(), crowns = new THREE.InstancedMesh(new THREE.ConeGeometry(1, 1, 7), new THREE.MeshStandardMaterial({ color: '#4f7661', roughness: 1 }), forest.length * 2);
-  forest.forEach((t, i) => { b.box(t.x, t.y + 4, t.z, 1.3, 8, 1.3, '#79674e'); for (let layer = 0; layer < 2; layer++) { tree.position.set(t.x, t.y + t.h * (.45 + layer * .3), t.z); tree.scale.set(4 - layer, t.h * .7, 4 - layer); tree.updateMatrix(); crowns.setMatrixAt(i * 2 + layer, tree.matrix); } }); crowns.castShadow = true; scene.add(crowns);
-  // Estate gardens and paths belong to the enlarged building footprints.
-  b.road([[0, 59, 356], [130, 30, 445], [350, 17, 535], [600, 17, 505]], 24);
-  b.road([[-175, 30, 360], [-230, 22, 515], [-390, 19, 535]], 22);
-  for (let i = 0; i < 12; i++) { const x = 235 + i % 4 * 52, z = 560 + Math.floor(i / 4) * 30, y = groundHeight(x,z); b.box(x, y + 2, z, 40, 4, 22, '#8b7355'); for (let j = 0; j < 5; j++) b.box(x - 15 + j * 7, y + 6, z, 4, 5, 18, '#779767', false); }
+  for (let i = 0; i < 12; i++) { const x = 235 + i % 4 * 52, z = 560 + Math.floor(i / 4) * 30;
+    const heights=[[-20,-11],[-20,11],[20,-11],[20,11]].map(([dx,dz])=>groundHeight(x+dx,z+dz));
+    if(Math.max(...heights)-Math.min(...heights)>1.2)continue;
+    const y=Math.max(...heights); b.box(x, y + 2, z, 40, 4, 22, '#8b7355'); for (let j = 0; j < 5; j++) b.box(x - 15 + j * 7, y + 6, z, 4, 5, 18, '#779767', false); }
   const wheel = new THREE.Group(); wheel.position.set(-260, 52, 382); wheel.rotation.y = Math.PI / 2;
   const wheelMat = new THREE.MeshStandardMaterial({ color: '#806443' });
   for (const offset of [-5, 5]) { const ring = new THREE.Mesh(new THREE.TorusGeometry(29, 2, 6, 24), wheelMat); ring.position.z = offset; wheel.add(ring); }
   for (let i = 0; i < 12; i++) { const spoke = new THREE.Mesh(new THREE.BoxGeometry(3, 58, 10), wheelMat); spoke.rotation.z = i / 12 * Math.PI; wheel.add(spoke); } scene.add(wheel);
   const wheels = [wheel];
-  b.road([[-405, 27, -270], [-624, 30, -870], [-690, 63, -990], [-920, 70, -1060]], 22, '#a69a78', true);
+
   // Broad streets, a continuous quay and the old canal connect larger civic halls.
-  b.road([[646, 43, -1100], [970, 63, -1150], [1015, 63, -2150]], 36);
-  for (const z of [-1150, -1450, -1780, -2140]) b.road([[710, 63, z], [1360, 63, z]], 30);
+
+
   b.box(695, 60, -1670, 50, 2, 1050, '#6b9c93', false);
   for (const x of [665, 725]) b.box(x, 61, -1670, 4, 6, 1050, '#b4b399');
-  for (let i = 0; i < 15; i++) { b.box(1010, 77, -1200 - i * 65, 2, 30, 2, '#687260'); b.box(1010, 94, -1200 - i * 65, 5, 7, 5, '#efca8b', false); }
   // Clock faces on a tower with three flyable floors, not a solid pedestal.
   for (const end of [-1, 1]) { const clock = new THREE.Mesh(new THREE.CircleGeometry(24, 32), new THREE.MeshStandardMaterial({ color: '#f2dfaf', side: THREE.DoubleSide })); clock.position.set(790, 251, -2070 + end * 117); scene.add(clock); b.box(790, 259, clock.position.z + end, 2, 17, 1, '#4b6d64', false); b.box(798, 251, clock.position.z + end, 17, 2, 1, '#4b6d64', false); }
   // The aqueduct joins wind houses through wide, open arches above the valley.
@@ -137,7 +130,7 @@ export function buildValley(scene: THREE.Scene, solids: THREE.Box3[], label: (na
     b.box(x, 61, -2260, 12, 122, 34, '#a6af97');
     const arch = new THREE.Mesh(new THREE.TorusGeometry(46, 4, 6, 20, Math.PI), new THREE.MeshStandardMaterial({ color: '#ced0b6' })); arch.position.set(x + 55, 75, -2260); scene.add(arch);
   }
-  b.road([[-80, 224, -2655], [-80, 225, -2945], [-250, 287, -3020]], 22);
+
   const dome = new THREE.Mesh(new THREE.SphereGeometry(172, 32, 16, 0, Math.PI * 1.6, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color: '#658c89', side: THREE.DoubleSide, roughness: .4, metalness: .4 })); dome.position.set(-250, 521, -3250); scene.add(dome);
   const ribs = new THREE.Mesh(dome.geometry, new THREE.MeshBasicMaterial({ color: '#bdab7c', wireframe: true })); ribs.position.copy(dome.position); ribs.scale.setScalar(1.002); scene.add(ribs);
   const lens = new THREE.Mesh(new THREE.TorusGeometry(48, 3, 8, 48), new THREE.MeshStandardMaterial({ color: '#d8bd84', metalness: .7, roughness: .3 })); lens.position.set(-250, 492, -3310); scene.add(lens);
@@ -155,7 +148,8 @@ export function buildValley(scene: THREE.Scene, solids: THREE.Box3[], label: (na
     scene.add(marker); siteObjects.set(site.id, marker);
   }
   buildTunnels(scene, b); const formations = buildCaveFormations(scene, solids); b.flush();
-  return { siteObjects, wheels, lens, skybeam, formations };
+  const settlements = buildSettlements(scene, solids, label);
+  return { siteObjects, wheels, lens, skybeam, formations, settlements };
 }
 
 function buildTunnels(scene: THREE.Scene, b: Builder) {
